@@ -1,0 +1,40 @@
+import React, { useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
+import Home from './Partes/Pantalpirciapl/Home';
+import Booking from './Partes/Agenda/Booking';
+import Appointments from './Partes/Agenda/Appointments';
+import Navbar from './Partes/ulidades/Navbar';
+import Footer from './Partes/ulidades/Footer';
+import Homeia from './ia/Homeia';
+import Cotisadormnula from './Partes/ulidades/Cotisadormnula';
+import Homeplamensual from './Planmseual/Homeplamensual';
+
+function App() {
+  const [appointments, setAppointments] = useState([]);
+
+  const addAppointment = (appointment) => {
+    setAppointments([...appointments, appointment]);
+  };
+
+  return (
+    <div className='contemaster'   >   
+      {/* Navbar siempre visible */}
+      <Navbar />
+
+      {/* Aquí van solo las rutas */}
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/agendar" element={<Booking addcita={addAppointment} />} />
+        <Route path="/pacmesual" element={<Homeplamensual addcita={addAppointment} />} />
+        <Route path="/cotisamanual" element={<Cotisadormnula addcita={addAppointment} />} />
+
+        <Route path="/miscitas" element={<Appointments appointments={appointments} />} />
+      </Routes>
+
+      {/* Footer siempre visible */}
+      <Footer />
+    </div>
+  );
+}
+
+export default App;
