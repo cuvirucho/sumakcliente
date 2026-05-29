@@ -49,13 +49,24 @@ const adicionales = [
     id: 1,
     name: "Aromatización",
     price: 10,
+    apto: "Hogares y Oficinas",
     image:
       "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
   },
   {
     id: 2,
+    name: "Desinfección",
+    price: 10,
+    apto: "Restaurantes,Hogares y Oficinas",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
+  },
+
+  {
+    id: 3,
     name: "Habitación extra",
     price: 15,
+    apto: "Hogares y Oficinas",
     image:
       "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/habitacion_extra_sumak_ozv6tn.png",
   },
@@ -68,6 +79,7 @@ const CotizadorLandingPro = () => {
   const [selectedAdicionales, setSelectedAdicionales] = useState([]);
   const [customPrices, setCustomPrices] = useState({});
   const [errors, setErrors] = useState({});
+  const [showServiceModal, setShowServiceModal] = useState(false);
 
   const handleServiceChange = (serviceId) => {
     const service = services.find((s) => s.id === serviceId);
@@ -209,20 +221,63 @@ const CotizadorLandingPro = () => {
 
       {selectedServices.length === 0 ? (
         <div className="cotizador-add-service">
-          <label className="labs">Selecciona un servicio:</label>
-          <select
-            onChange={(e) => handleServiceChange(parseInt(e.target.value))}
-            value=""
+          <button
+            className="cotizador-open-modal-btn"
+            onClick={() => setShowServiceModal(true)}
           >
-            <option value="">-- Selecciona un servicio --</option>
-            {services.map((service) => (
-              <option key={service.id} value={service.id}>
-                {service.title}
-              </option>
-            ))}
-          </select>
+            Seleccionar servicio
+          </button>
         </div>
       ) : null}
+
+      <AnimatePresence>
+        {showServiceModal && (
+          <motion.div
+            className="service-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowServiceModal(false)}
+          >
+            <motion.div
+              className="service-modal"
+              initial={{ opacity: 0, y: 40, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 40, scale: 0.96 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                className="service-modal-close"
+                onClick={() => setShowServiceModal(false)}
+              >
+                ✕
+              </button>
+              <h3 className="service-modal-title">¿Qué deseas limpiar?</h3>
+              <p className="service-modal-sub">Elige el tipo de servicio</p>
+              <div className="service-modal-grid">
+                {services.map((service) => (
+                  <button
+                    key={service.id}
+                    className="service-modal-card"
+                    onClick={() => {
+                      handleServiceChange(service.id);
+                      setShowServiceModal(false);
+                    }}
+                  >
+                    <span className="service-modal-card-title">
+                      {service.title}
+                    </span>
+                    <span className="service-modal-card-desc">
+                      {service.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="cotizador-services">
         <AnimatePresence>
