@@ -41,7 +41,7 @@ const services = [
     description: "Cumplimos con los estándares de higiene más exigentes.",
     image:
       "https://res.cloudinary.com/db8e98ggo/image/upload/v1760687287/hermano_Miguel_y_calle_larga_2_ex0sql.png",
-    priceRange: "$36 – $120",
+    priceRange: "$37 – $120",
   },
 ];
 

@@ -15,7 +15,10 @@ const Appointments = () => {
   const deviceId = getDeviceId();
 
   useEffect(() => {
-    const q = query(collection(db, "turnos"), where("deviceId", "==", deviceId));
+    const q = query(
+      collection(db, "turnos"),
+      where("deviceId", "==", deviceId),
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const citasData = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -46,7 +49,11 @@ const Appointments = () => {
     <section className="appointments-container">
       <AnimatePresence>
         {citas.length === 0 ? (
-          <motion.p className="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <motion.p
+            className="empty"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
             No hay citas registradas en este dispositivo.
           </motion.p>
         ) : (
@@ -60,10 +67,18 @@ const Appointments = () => {
                 whileTap={{ scale: 0.97 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
               >
-                <h3 className="cartitli">{cita.cotizacion.servicios?.[0]?.titulo}</h3>
-                <p className="tcasrservi"><strong>Para:</strong> {cita.nombre} {cita.apellido}</p>
-                <p className="tcasrservi"><strong>Fecha:</strong> {cita.fecha}</p>
-                <p className="tcasrservi"><strong>Hora:</strong> {cita.hora}</p>
+                <h3 className="cartitli">
+                  {cita.cotizacion.servicios?.[0]?.titulo}
+                </h3>
+                <p className="tcasrservi">
+                  <strong>Para:</strong> {cita.nombre} {cita.apellido}
+                </p>
+                <p className="tcasrservi">
+                  <strong>Fecha:</strong> {cita.fecha}
+                </p>
+                <p className="tcasrservi">
+                  <strong>Hora:</strong> {cita.hora}
+                </p>
                 <p className="estado">
                   <strong>Estado:</strong> {cita.estado || "Aprobado"}
                 </p>
@@ -84,30 +99,61 @@ const Appointments = () => {
               exit={{ opacity: 0 }}
               onClick={() => setSelectedCita(null)}
             >
-              {showConfetti && <Confetti className="modal-conti" recycle={false} numberOfPieces={8000} />}
+              {showConfetti && (
+                <Confetti
+                  className="modal-conti"
+                  recycle={false}
+                  numberOfPieces={8000}
+                />
+              )}
               <motion.div
                 className="apt-modal-content"
                 initial={{ y: 80, opacity: 0, scale: 0.85 }}
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: 80, opacity: 0, scale: 0.85 }}
-                transition={{ duration: 0.4, type: "spring", stiffness: 250, damping: 25 }}
+                transition={{
+                  duration: 0.4,
+                  type: "spring",
+                  stiffness: 250,
+                  damping: 25,
+                }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <h2 className="modtulo">{selectedCita.cotizacion.servicios?.[0]?.titulo}</h2>
+                <h2 className="modtulo">
+                  {selectedCita.cotizacion.servicios?.[0]?.titulo}
+                </h2>
 
                 <div className="modal-info">
-                  <p><strong>Cliente:</strong> {selectedCita.nombre} {selectedCita.apellido}</p>
-                  <p><strong>Celular:</strong> {selectedCita.celular}</p>
-                  <p><strong>Correo:</strong> {selectedCita.correo}</p>
+                  <p>
+                    <strong>Cliente:</strong> {selectedCita.nombre}{" "}
+                    {selectedCita.apellido}
+                  </p>
+                  <p>
+                    <strong>Celular:</strong> {selectedCita.celular}
+                  </p>
+                  <p>
+                    <strong>Correo:</strong> {selectedCita.correo}
+                  </p>
                 </div>
 
                 {(() => {
-                  const { fechaFormateada, horaFormateada } = formatFechaHora(selectedCita.fecha, selectedCita.hora);
+                  const { fechaFormateada, horaFormateada } = formatFechaHora(
+                    selectedCita.fecha,
+                    selectedCita.hora,
+                  );
                   return (
-                    <motion.div className="condats" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                    <motion.div
+                      className="condats"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
                       <h3 className="fechahora-titulo">Tu cita programada</h3>
-                      <p><strong>{fechaFormateada}</strong></p>
-                      <p><strong>{horaFormateada}</strong></p>
+                      <p>
+                        <strong>{fechaFormateada}</strong>
+                      </p>
+                      <p>
+                        <strong>{horaFormateada}</strong>
+                      </p>
                     </motion.div>
                   );
                 })()}
@@ -123,7 +169,6 @@ const Appointments = () => {
                   />
                   <p className="qr-id">ID: {selectedCita.id}</p>
                 </div>
-
               </motion.div>
             </motion.div>
           </>

@@ -41,27 +41,19 @@ const services = [
 
 const extras = [
   { id: 1, name: "Profunda Master", percentage: 0.15 },
-  { id: 2, name: "Profunda VIP", percentage: 0.2 },
+  { id: 2, name: "Profunda VIP", percentage: 0.35 },
 ];
 
 const adicionales = [
+  // ── Hogares y Oficinas ──────────────────────────────────────
   {
     id: 1,
-    name: "Aromatización",
+    name: "Terras y Balcones",
     price: 10,
     apto: "Hogares y Oficinas",
     image:
       "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
   },
-  {
-    id: 2,
-    name: "Desinfección",
-    price: 10,
-    apto: "Restaurantes,Hogares y Oficinas",
-    image:
-      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
-  },
-
   {
     id: 3,
     name: "Habitación extra",
@@ -69,6 +61,162 @@ const adicionales = [
     apto: "Hogares y Oficinas",
     image:
       "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/habitacion_extra_sumak_ozv6tn.png",
+  },
+
+  // ── Solo Hogares ─────────────────────────────────────────────
+  {
+    id: 4,
+    name: "Limpieza de colchones",
+    price: 20,
+    apto: "Hogares",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/habitacion_extra_sumak_ozv6tn.png",
+  },
+  {
+    id: 5,
+    name: "Limpieza de alfombras",
+    price: 18,
+    apto: "Hogares",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/habitacion_extra_sumak_ozv6tn.png",
+  },
+
+  // ── Solo Oficinas ─────────────────────────────────────────────
+  {
+    id: 6,
+    name: "ambientación de espacios",
+    price: 15,
+    apto: "Oficinas",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
+  },
+  {
+    id: 7,
+    name: "Resposición de suministros de limpieza",
+    price: 12,
+    apto: "Oficinas",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
+  },
+
+  // ── Solo Restaurantes ─────────────────────────────────────────
+  {
+    id: 8,
+    name: "Desengrasado de campana",
+    price: 25,
+    apto: "Restaurantes",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
+  },
+  {
+    id: 9,
+    name: "Limpieza de Neveras y vitrinas",
+    price: 30,
+    apto: "Restaurantes",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
+  },
+
+  // ── Hogares y Restaurantes ────────────────────────────────────
+  {
+    id: 10,
+    name: "Limpieza de ventanas (exterior)",
+    price: 15,
+    apto: "Hogares y Restaurantes",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/habitacion_extra_sumak_ozv6tn.png",
+  },
+
+  // ── Oficinas y Restaurantes ───────────────────────────────────
+  {
+    id: 11,
+    name: "Pulido de pisos",
+    price: 30,
+    apto: "Oficinas y Restaurantes",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/habitacion_extra_sumak_ozv6tn.png",
+  },
+
+  // ── Todos los lugares ─────────────────────────────────────────
+  {
+    id: 2,
+    name: "Aromatización",
+    price: 10,
+    apto: "Hogares, Oficinas y Restaurantes",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
+  },
+  {
+    id: 12,
+    name: "Limpieza profunda de baños",
+    price: 12,
+    apto: "Hogares, Oficinas y Restaurantes",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/habitacion_extra_sumak_ozv6tn.png",
+  },
+  {
+    id: 13,
+    name: "Retiro de residuos especiales",
+    price: 8,
+    apto: "Hogares, Oficinas y Restaurantes",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
+  },
+];
+
+const tiposLimpieza = [
+  {
+    id: 1,
+    name: "Normal",
+    incluye: [
+      "Limpieza integral de áreas visibles",
+      "Aspirado, barrido y trapeado de pisos",
+      "Desinfección básica de superficies de contacto",
+      "Retiro de polvo en muebles, equipos y decoraciones accesibles",
+      "Limpieza de baños y sanitarios",
+      "Limpieza de cocina o área de cafetería",
+      "Limpieza de espejos y superficies de vidrio accesibles",
+      "Vaciado de basureros y reposición de fundas",
+      "Organización básica de espacios",
+      "Aromatización de ambientes",
+    ],
+  },
+  {
+    id: 2,
+    name: "Profunda Master",
+    incluye: [
+      "Todo lo incluido en el plan Normal",
+      "Desinfección reforzada de áreas de alto contacto",
+      "Limpieza detallada de puertas, marcos e interruptores",
+      "Limpieza de zócalos, esquinas y bordes",
+      "Eliminación de polvo acumulado en zonas de difícil acceso",
+      "Limpieza profunda de baños",
+      "Desengrasado de cocinas y áreas de preparación",
+      "Limpieza detallada de mobiliario y superficies de trabajo",
+      "Tratamiento para eliminar manchas superficiales",
+      "Limpieza detallada de cristales y superficies brillantes",
+      "Aromatización premium de larga duración",
+    ],
+  },
+  {
+    id: 3,
+    name: "Profunda VIP",
+    incluye: [
+      "Todo lo incluido en el Profunda Master y el plan Normal",
+      "Limpieza profunda y detallada de todas las áreas intervenidas",
+      "Desinfección intensiva de superficies y puntos críticos de contacto",
+      "Eliminación de grasa, polvo y suciedad acumulada",
+      "Limpieza interior y exterior de muebles accesibles",
+      "Limpieza completa de ventanas, marcos, rieles y superficies de vidrio",
+      "Limpieza detrás, debajo y alrededor de muebles accesibles",
+      "Tratamiento para neutralización de olores",
+      "Limpieza detallada de esquinas, rincones y áreas de difícil acceso",
+      "Recuperación del brillo natural de superficies según el material",
+      "Acabado profesional para una apariencia impecable",
+      "Inspección y control de calidad final",
+      "Aromatización premium de larga duración",
+      "Atención especial a los detalles para dejar el espacio listo para recibir clientes, visitas o colaboradores",
+    ],
   },
 ];
 
@@ -140,7 +288,7 @@ const CotizadorLandingPro = () => {
   };
 
   const handleAdicionalChange = (ad) => {
-    if (selectedAdicionales.includes(ad))
+    if (selectedAdicionales.some((a) => a.id === ad.id))
       setSelectedAdicionales(selectedAdicionales.filter((a) => a.id !== ad.id));
     else setSelectedAdicionales([...selectedAdicionales, ad]);
   };
@@ -207,7 +355,7 @@ const CotizadorLandingPro = () => {
     };
     console.log(orden);
     localStorage.setItem("ordenLimpieza", JSON.stringify(orden));
-    alert("Orden guardada correctamente en tu navegador.");
+
     navigate("/agendar");
   };
 
@@ -368,34 +516,48 @@ const CotizadorLandingPro = () => {
         </AnimatePresence>
       </div>
 
-      {selectedServices.length > 0 && (
-        <div className="cotizador-adicionales">
-          <h3>Servicios Adicionales</h3>
-          <div className="adicionales-grid">
-            {adicionales.map((ad) => {
-              const isSelected = selectedAdicionales.includes(ad);
-              return (
-                <div
-                  key={ad.id}
-                  className={`adicional-card ${isSelected ? "activo" : ""}`}
-                  onClick={() => handleAdicionalChange(ad)}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    readOnly
-                    style={{ display: "none" }}
-                  />
-                  <img src={ad.image} alt={ad.name} className="adicional-img" />
-                  <span className="adicional-text">
-                    {ad.name} <br /> +${ad.price}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {selectedServices.length > 0 &&
+        (() => {
+          const lugaresSeleccionados = selectedServices.map((s) => {
+            if (s.title.includes("Hogar")) return "Hogares";
+            if (s.title.includes("Oficina")) return "Oficinas";
+            if (s.title.includes("Restaurante")) return "Restaurantes";
+            return "";
+          });
+          const adicionalesFiltrados = adicionales.filter((ad) =>
+            lugaresSeleccionados.some((lugar) => ad.apto.includes(lugar)),
+          );
+          return (
+            <div className="cotizador-adicionales">
+              <h3>Servicios Adicionales</h3>
+              <div className="adicionales-grid">
+                {adicionalesFiltrados.map((ad) => {
+                  const isSelected = selectedAdicionales.some(
+                    (a) => a.id === ad.id,
+                  );
+                  return (
+                    <div
+                      key={ad.id}
+                      className={`adicional-card ${isSelected ? "activo" : ""}`}
+                      onClick={() => handleAdicionalChange(ad)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        readOnly
+                        style={{ display: "none" }}
+                      />
+
+                      <span className="adicional-text">
+                        {ad.name} <br /> +${ad.price}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
       {selectedServices.length > 0 && (
         <div className="cotizador-resumen">
@@ -434,6 +596,23 @@ const CotizadorLandingPro = () => {
                       {customPrices[service.id]}
                     </p>
                   )}
+                  {(() => {
+                    const tipoNombre =
+                      selectedExtras[service.id]?.name || "Normal";
+                    const tipo = tiposLimpieza.find(
+                      (t) => t.name === tipoNombre,
+                    );
+                    return tipo ? (
+                      <div className="cardsec-incluye">
+                        <p className="cardsec-incluye-label">Incluye</p>
+                        <ul>
+                          {tipo.incluye.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               ))}
               {selectedAdicionales.length > 0 && (
@@ -453,7 +632,7 @@ const CotizadorLandingPro = () => {
                 Precio final: ${precioFinal.toFixed(2)}
               </p>
               <button className="tmconti" onClick={handleContinuar}>
-                Continuar
+                Agendar servicio
               </button>
             </>
           )}

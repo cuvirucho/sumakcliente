@@ -36,7 +36,7 @@ const Booking = () => {
     <section className="booking-section">
       {cotizacion ? (
         <div className="contefuldarotom">
-          <h3 className="cotizacion-paso">Paso 2: Reserva tu turno </h3>
+          <h3 className="cotizacion-paso">Paso 2: Llena tus datos </h3>
 
           <Tomdatos coti={cotizacion} />
 
