@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import React, { useState, useEffect, useRef } from "react";
+import { collection, query, where, onSnapshot, doc } from "firebase/firestore";
 import { db } from "../../Firebase/Firebase";
 import { getDeviceId } from "../ulidades/deviceId";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeCanvas } from "qrcode.react";
 import Confetti from "react-confetti";
+import { useNavigate } from "react-router-dom";
 
 const ESTADOS = ["Aprobado", "En proceso", "Finalizado"];
 
@@ -12,7 +13,10 @@ const Appointments = () => {
   const [citas, setCitas] = useState([]);
   const [selectedCita, setSelectedCita] = useState(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [activeStreams, setActiveStreams] = useState(new Set());
+  const streamUnsubsRef = useRef({});
   const deviceId = getDeviceId();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const q = query(
@@ -20,14 +24,48 @@ const Appointments = () => {
       where("deviceId", "==", deviceId),
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const citasData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const citasData = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
       }));
       setCitas(citasData);
     });
     return () => unsubscribe();
   }, [deviceId]);
+
+  useEffect(() => {
+    const currentIds = new Set(citas.map((c) => c.id));
+    // Limpiar suscripciones de turnos que ya no existen
+    Object.keys(streamUnsubsRef.current).forEach((id) => {
+      if (!currentIds.has(id)) {
+        streamUnsubsRef.current[id]();
+        delete streamUnsubsRef.current[id];
+      }
+    });
+    // Suscribir a streams de nuevos turnos
+    citas.forEach((cita) => {
+      if (!streamUnsubsRef.current[cita.id]) {
+        streamUnsubsRef.current[cita.id] = onSnapshot(
+          doc(db, "streams", cita.id),
+          (snap) => {
+            setActiveStreams((prev) => {
+              const next = new Set(prev);
+              if (snap.exists() && snap.data().offer) {
+                next.add(cita.id);
+              } else {
+                next.delete(cita.id);
+              }
+              return next;
+            });
+          },
+        );
+      }
+    });
+    return () => {
+      Object.values(streamUnsubsRef.current).forEach((unsub) => unsub());
+      streamUnsubsRef.current = {};
+    };
+  }, [citas]);
 
   const openModal = (cita) => {
     setSelectedCita(cita);
@@ -82,6 +120,17 @@ const Appointments = () => {
                 <p className="estado">
                   <strong>Estado:</strong> {cita.estado || "Aprobado"}
                 </p>
+                {activeStreams.has(cita.id) && (
+                  <button
+                    className="btn-live"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/view/${cita.id}`);
+                    }}
+                  >
+                    🔴 Ver en vivo
+                  </button>
+                )}
               </motion.div>
             ))}
           </div>

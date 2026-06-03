@@ -14,7 +14,7 @@ const Tomdatos = ({ coti }) => {
     fecha: "",
     hora: "",
     deviceId: getDeviceId(),
-    estado: "aprobado",
+    estado: "Recibido",
   });
 
   const [horariosDisponibles, setHorariosDisponibles] = useState([]);
@@ -115,7 +115,7 @@ const Tomdatos = ({ coti }) => {
         fecha: "",
         hora: "",
         deviceId: getDeviceId(),
-        estado: "aprobado",
+        estado: "Recibido",
       });
       setHorariosDisponibles([]);
     } catch (error) {

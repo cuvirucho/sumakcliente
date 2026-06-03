@@ -8,6 +8,7 @@ import Footer from './Partes/ulidades/Footer';
 import Homeia from './ia/Homeia';
 import Cotisadormnula from './Partes/ulidades/Cotisadormnula';
 import Homeplamensual from './Planmseual/Homeplamensual';
+import ViewStream from './pages/ViewStream';
 
 function App() {
   const [appointments, setAppointments] = useState([]);
@@ -29,6 +30,7 @@ function App() {
         <Route path="/cotisamanual" element={<Cotisadormnula addcita={addAppointment} />} />
 
         <Route path="/miscitas" element={<Appointments appointments={appointments} />} />
+        <Route path="/view/:turnoId" element={<ViewStream />} />
       </Routes>
 
       {/* Footer siempre visible */}
