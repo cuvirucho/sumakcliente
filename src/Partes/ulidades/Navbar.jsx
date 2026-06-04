@@ -31,6 +31,12 @@ const Navbar = () => {
         >
           Mis citas
         </NavLink>
+        <NavLink
+          to="/perfil"
+          className={({ isActive }) => `navbar__link${isActive ? ' navbar__link--active' : ''}`}
+        >
+          Perfil
+        </NavLink>
       </div>
     </nav>
   );

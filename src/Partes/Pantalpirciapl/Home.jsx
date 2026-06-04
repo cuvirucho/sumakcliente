@@ -12,10 +12,10 @@ const services = [
       { size: "Grande (5+ habitaciones)", price: 85 },
     ],
     description:
-      "Transforma tu espacio en un oasis: limpiezas rápidas o profundas, hechas solo para ti.",
+      "Espacios que respiran, hogares que brillan. Tú eliges el nivel de limpieza, nosotros nos encargamos del resto.",
     image:
       "https://res.cloudinary.com/db8e98ggo/image/upload/v1760686760/hermano_Miguel_y_calle_larga_jvad5k.png",
-    priceRange: "$35 – $112",
+    priceRange: "$38 – $125",
   },
   {
     id: 2,
@@ -25,10 +25,11 @@ const services = [
       { size: "Mediana (6-15 empleados)", price: 68 },
       { size: "Grande (16+ empleados)", price: 150 },
     ],
-    description: "Ambientes impecables para trabajar con productividad.",
+    description:
+      "Espacios de trabajo limpios que impulsan la productividad de tu equipo.",
     image:
       "https://res.cloudinary.com/db8e98ggo/image/upload/v1760687049/hermano_Miguel_y_calle_larga_1_w4m8lt.png",
-    priceRange: "$45 – $150",
+    priceRange: "$45 – $210",
   },
   {
     id: 3,
@@ -38,10 +39,25 @@ const services = [
       { size: "Mediano (4-6 mesas)", price: 56 },
       { size: "Grande (7+ mesas)", price: 120 },
     ],
-    description: "Cumplimos con los estándares de higiene más exigentes.",
+    description:
+      "Protocolos rigurosos, resultados impecables. La higiene que tu negocio necesita.",
     image:
       "https://res.cloudinary.com/db8e98ggo/image/upload/v1760687287/hermano_Miguel_y_calle_larga_2_ex0sql.png",
-    priceRange: "$37 – $120",
+    priceRange: "$38 – $170",
+  },
+  {
+    id: 4,
+    title: "Limpieza de Airbnb",
+    Precios: [
+      { size: "Estudio / 1 habitación", price: 40 },
+      { size: "2-3 habitaciones", price: 65 },
+      { size: "4+ habitaciones", price: 100 },
+    ],
+    description:
+      "Impresiona a tus huéspedes con un espacio impecable. Limpieza rápida y detallada ",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1760687287/hermano_Miguel_y_calle_larga_2_ex0sql.png",
+    priceRange: "$40 – $140",
   },
 ];
 
@@ -58,8 +74,8 @@ const Home = () => {
         <div className="sumak-hero-overlay">
           <h1 className="sumak-title">Bienvenido a Sumak</h1>
           <p className="sumak-subtitle">
-            Limpieza profesional y de lujo, rápida y confiable. Tu espacio
-            impecable en tiempo récord.
+            Limpieza profesional , rápida y confiable. Tu espacio impecable en
+            tiempo récord.
           </p>
 
           <div className="sumak-hero-buttons">
@@ -97,7 +113,7 @@ const Home = () => {
                 />
               </div>
               <h3>{service.title}</h3>
-              <p>{service.description}</p>
+
               <span className="service-card__price-badge">
                 {service.priceRange}
               </span>
@@ -142,14 +158,7 @@ const Home = () => {
             <div className="modal-body">
               <h2 className="tilicar">{selectedService.title}</h2>
               <p className="descar">{selectedService.description}</p>
-              <h3 className="tilicar2">Rango de precios:</h3>
-              <ul className="cotepersli">
-                {selectedService.Precios.map((option, index) => (
-                  <li className="PRCIITAM" key={index}>
-                    {option.size}: ${option.price}
-                  </li>
-                ))}
-              </ul>
+
               <Link
                 to="/agendar"
                 className="sumton2"

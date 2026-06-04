@@ -8,9 +8,9 @@ const services = [
     title: "Limpieza de Hogares",
     description: "Transforma tu hogar en un espacio impecable y acogedor.",
     Precios: [
-      { size: "Pequeño (1-4 habitaciones)", price: 35 },
+      { size: "Pequeño (1-4 habitaciones)", price: 38 },
       { size: "Mediano (5-8 habitaciones)", price: 56 },
-      { size: "Grande (9-11 habitaciones)", price: 95 },
+      { size: "Grande (9-12 habitaciones)", price: 95 },
       { size: "Personalizado (12+ habitaciones)", price: "varia" },
     ],
   },
@@ -21,7 +21,7 @@ const services = [
     Precios: [
       { size: "Pequeña (1-5 empleados)", price: 45 },
       { size: "Mediana (6-15 empleados)", price: 68 },
-      { size: "Grande (16+ empleados)", price: 150 },
+      { size: "Grande (16-19 empleados)", price: 150 },
       { size: "Personalizado (20+ empleados)", price: "varia" },
     ],
   },
@@ -31,17 +31,29 @@ const services = [
     description:
       "Cumple con los estándares de higiene y seguridad alimentaria.",
     Precios: [
-      { size: "Pequeño (1-4 mesas)", price: 37 },
+      { size: "Pequeño (1-4 mesas)", price: 38 },
       { size: "Mediano (5-8 mesas)", price: 56 },
-      { size: "Grande (9+ mesas)", price: 120 },
+      { size: "Grande (9-13 mesas)", price: 120 },
       { size: "Personalizado (18+ mesas)", price: "varia" },
+    ],
+  },
+  {
+    id: 4,
+    title: "Limpieza de Airbnb",
+    description:
+      "Deja tu propiedad lista para recibir nuevos huéspedes, impecable y acogedora.",
+    Precios: [
+      { size: "Estudio / 1 habitación", price: 40 },
+      { size: "2-3 habitaciones", price: 65 },
+      { size: "4-6 habitaciones", price: 100 },
+      { size: "Personalizado (7+ habitaciones)", price: "varia" },
     ],
   },
 ];
 
 const extras = [
-  { id: 1, name: "Profunda Master", percentage: 0.15 },
-  { id: 2, name: "Profunda VIP", percentage: 0.35 },
+  { id: 1, name: "Profunda Master", percentage: 0.2 },
+  { id: 2, name: "Profunda VIP", percentage: 0.38 },
 ];
 
 const adicionales = [
@@ -133,6 +145,32 @@ const adicionales = [
     name: "Pulido de pisos",
     price: 30,
     apto: "Oficinas y Restaurantes",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/habitacion_extra_sumak_ozv6tn.png",
+  },
+
+  // ── Solo Airbnb ───────────────────────────────────────────────
+  {
+    id: 14,
+    name: "Cambio de sábanas y toallas",
+    price: 15,
+    apto: "Airbnb",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/habitacion_extra_sumak_ozv6tn.png",
+  },
+  {
+    id: 15,
+    name: "Reposición de amenities (jabón, papel, etc.)",
+    price: 12,
+    apto: "Airbnb",
+    image:
+      "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/aromatizacion_sumak_uxyqzq.png",
+  },
+  {
+    id: 16,
+    name: "Lavado de ropa de cama y blancos",
+    price: 20,
+    apto: "Airbnb",
     image:
       "https://res.cloudinary.com/db8e98ggo/image/upload/v1766896351/habitacion_extra_sumak_ozv6tn.png",
   },
@@ -522,6 +560,7 @@ const CotizadorLandingPro = () => {
             if (s.title.includes("Hogar")) return "Hogares";
             if (s.title.includes("Oficina")) return "Oficinas";
             if (s.title.includes("Restaurante")) return "Restaurantes";
+            if (s.title.includes("Airbnb")) return "Airbnb";
             return "";
           });
           const adicionalesFiltrados = adicionales.filter((ad) =>

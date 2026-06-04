@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import Tomdatos from "../ulidades/Tomdatos";
+import AuthGate from "./AuthGate";
+import ElegirUbicacion from "./ElegirUbicacion";
+import { useAuth } from "../ulidades/AuthContext";
 
 const Booking = () => {
   const [cotizacion, setCotizacion] = useState(null);
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -36,9 +39,17 @@ const Booking = () => {
     <section className="booking-section">
       {cotizacion ? (
         <div className="contefuldarotom">
-          <h3 className="cotizacion-paso">Paso 2: Llena tus datos </h3>
+          <h3 className="cotizacion-paso">
+            {user ? "Paso 2: Elige tu ubicación" : "Paso 2: Inicia sesión"}
+          </h3>
 
-          <Tomdatos coti={cotizacion} />
+          {loading ? (
+            <p className="cotizacion-creada">Cargando...</p>
+          ) : user ? (
+            <ElegirUbicacion coti={cotizacion} />
+          ) : (
+            <AuthGate />
+          )}
 
           <article className="cotizacion-card">
             <div className="cotizacion-header">
@@ -136,7 +147,7 @@ const Booking = () => {
                 alt="Sumak Clean Logo"
               />
 
-              <p>Cotizar cita</p>
+              <p>Agendar cita</p>
             </Link>
           </div>
 

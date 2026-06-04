@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { collection, query, where, onSnapshot, doc } from "firebase/firestore";
 import { db } from "../../Firebase/Firebase";
 import { getDeviceId } from "../ulidades/deviceId";
+import { useAuth } from "../ulidades/AuthContext";
+import AuthGate from "./AuthGate";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeCanvas } from "qrcode.react";
 import Confetti from "react-confetti";
@@ -16,13 +18,13 @@ const Appointments = () => {
   const [activeStreams, setActiveStreams] = useState(new Set());
   const streamUnsubsRef = useRef({});
   const deviceId = getDeviceId();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const q = query(
-      collection(db, "turnos"),
-      where("deviceId", "==", deviceId),
-    );
+    const q = user
+      ? query(collection(db, "turnos"), where("uid", "==", user.uid))
+      : query(collection(db, "turnos"), where("deviceId", "==", deviceId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const citasData = snapshot.docs.map((d) => ({
         id: d.id,
@@ -31,7 +33,7 @@ const Appointments = () => {
       setCitas(citasData);
     });
     return () => unsubscribe();
-  }, [deviceId]);
+  }, [deviceId, user]);
 
   useEffect(() => {
     const currentIds = new Set(citas.map((c) => c.id));
@@ -83,6 +85,18 @@ const Appointments = () => {
     };
   };
 
+  if (loading) {
+    return (
+      <section className="appointments-container">
+        <p className="empty">Cargando...</p>
+      </section>
+    );
+  }
+
+  if (!user) {
+    return <AuthGate />;
+  }
+
   return (
     <section className="appointments-container">
       <AnimatePresence>
@@ -92,7 +106,7 @@ const Appointments = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            No hay citas registradas en este dispositivo.
+            No hay citas registradas
           </motion.p>
         ) : (
           <div className="cards-grid">
