@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  useMapEvents,
+  useMap,
+} from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -11,6 +17,7 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { db } from "../../Firebase/Firebase";
 import { getDeviceId } from "../ulidades/deviceId";
 import { useAuth } from "../ulidades/AuthContext";
+import { reverseGeocode, buscarDirecciones } from "../ulidades/geocoding";
 
 // Arreglo del icono por defecto de Leaflet con bundlers (Vite)
 const defaultIcon = L.icon({
@@ -23,8 +30,9 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-// Centro por defecto: Quito, Ecuador
-const CENTRO_DEFECTO = { lat: -0.1807, lng: -78.4678 };
+// Centro por defecto: Cuenca, Ecuador
+const CENTRO_DEFECTO = { lat: -2.9001, lng: -79.0059 };
+const CIUDAD_DEFECTO = "Cuenca";
 
 const generarHoras = () => {
   const horas = [];
@@ -34,10 +42,10 @@ const generarHoras = () => {
   return horas;
 };
 
-const SelectorMapa = ({ posicion, setPosicion }) => {
+const SelectorMapa = ({ posicion, onSeleccion }) => {
   useMapEvents({
     click(e) {
-      setPosicion({ lat: e.latlng.lat, lng: e.latlng.lng });
+      onSeleccion(e.latlng.lat, e.latlng.lng);
     },
   });
   return (
@@ -48,11 +56,23 @@ const SelectorMapa = ({ posicion, setPosicion }) => {
       eventHandlers={{
         dragend(e) {
           const { lat, lng } = e.target.getLatLng();
-          setPosicion({ lat, lng });
+          onSeleccion(lat, lng);
         },
       }}
     />
   );
+};
+
+// Recentra el mapa con una animación suave cuando cambia la posición,
+// sin remontar el MapContainer (mapa más dinámico).
+const RecenterMapa = ({ posicion }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo([posicion.lat, posicion.lng], map.getZoom(), {
+      duration: 0.8,
+    });
+  }, [posicion, map]);
+  return null;
 };
 
 const ElegirUbicacion = ({ coti }) => {
@@ -64,26 +84,100 @@ const ElegirUbicacion = ({ coti }) => {
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
 
+  const [modo, setModo] = useState(null); // null | "actual" | "mapa"
+  const [ciudadUsuario, setCiudadUsuario] = useState(CIUDAD_DEFECTO);
+  const [direccionTexto, setDireccionTexto] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [sugerencias, setSugerencias] = useState([]);
+  const [cargandoUbic, setCargandoUbic] = useState(false);
+
   const [fechasOcupadas, setFechasOcupadas] = useState([]);
   const [horariosDisponibles, setHorariosDisponibles] = useState([]);
   const [mensaje, setMensaje] = useState("");
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState(null);
 
-  // Intentar centrar en la ubicación actual del usuario
-  useEffect(() => {
-    if (navigator.geolocation) {
+  const reverseTimer = useRef(null);
+  const buscarTimer = useRef(null);
+
+  // Obtiene la ubicación GPS actual como promesa.
+  const obtenerGPS = () =>
+    new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("sin geolocalización"));
+        return;
+      }
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setPosicion({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-        },
-        () => {},
+        (pos) =>
+          resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => reject(err),
+        { enableHighAccuracy: true, timeout: 10000 },
       );
+    });
+
+  // Fija la posición y actualiza la dirección de texto (reverse geocoding con debounce).
+  const actualizarPosicion = (lat, lng) => {
+    setPosicion({ lat, lng });
+    if (reverseTimer.current) clearTimeout(reverseTimer.current);
+    reverseTimer.current = setTimeout(async () => {
+      const { direccion, ciudad } = await reverseGeocode(lat, lng);
+      if (direccion) setDireccionTexto(direccion);
+      if (ciudad) setCiudadUsuario(ciudad);
+    }, 600);
+  };
+
+  // Modo "usar mi ubicación actual": GPS -> centra + resuelve calle + ciudad.
+  const usarUbicacionActual = async () => {
+    setCargandoUbic(true);
+    try {
+      const { lat, lng } = await obtenerGPS();
+      setPosicion({ lat, lng });
+      const { direccion, ciudad } = await reverseGeocode(lat, lng);
+      setDireccionTexto(direccion);
+      setCiudadUsuario(ciudad || CIUDAD_DEFECTO);
+    } catch {
+      setPosicion(CENTRO_DEFECTO);
+      setCiudadUsuario(CIUDAD_DEFECTO);
+      setMensaje(
+        "No pudimos obtener tu ubicación. Selecciónala en el mapa, por favor.",
+      );
+    } finally {
+      setCargandoUbic(false);
+      setModo("actual");
     }
-  }, []);
+  };
+
+  // Modo "seleccionar en el mapa": deriva la ciudad del GPS en segundo plano.
+  const seleccionarEnMapa = () => {
+    setModo("mapa");
+    obtenerGPS()
+      .then(async ({ lat, lng }) => {
+        const { ciudad } = await reverseGeocode(lat, lng);
+        if (ciudad) setCiudadUsuario(ciudad);
+      })
+      .catch(() => setCiudadUsuario(CIUDAD_DEFECTO));
+  };
+
+  // Búsqueda de calles acotada a la ciudad del usuario (con debounce).
+  const onBuscar = (texto) => {
+    setBusqueda(texto);
+    if (buscarTimer.current) clearTimeout(buscarTimer.current);
+    if (texto.trim().length < 3) {
+      setSugerencias([]);
+      return;
+    }
+    buscarTimer.current = setTimeout(async () => {
+      const res = await buscarDirecciones(texto, ciudadUsuario);
+      setSugerencias(res);
+    }, 400);
+  };
+
+  const elegirSugerencia = (s) => {
+    setPosicion({ lat: s.lat, lng: s.lng });
+    setDireccionTexto(s.display_name);
+    setBusqueda(s.display_name);
+    setSugerencias([]);
+  };
 
   useEffect(() => {
     const cargarFechas = async () => {
@@ -153,6 +247,8 @@ const ElegirUbicacion = ({ coti }) => {
           lat: posicion.lat,
           lng: posicion.lng,
           referencia,
+          direccion: direccionTexto,
+          ciudad: ciudadUsuario,
         },
         fecha,
         hora,
@@ -194,25 +290,98 @@ const ElegirUbicacion = ({ coti }) => {
         <div className="tomdatos-card">
           <h2 className="tomdatos-title">Elige tu ubicación</h2>
           <p className="tomdatos-subtitle">
-            Toca el mapa o arrastra el marcador para indicar dónde realizaremos
-            el servicio.
+            {modo === null
+              ? "¿Cómo quieres indicarnos dónde realizaremos el servicio?"
+              : "Busca tu calle o toca el mapa para ajustar el punto exacto."}
           </p>
 
+          {modo === null && (
+            <div className="ubic-modo">
+              <button
+                type="button"
+                className="ubic-modo-btn"
+                onClick={usarUbicacionActual}
+                disabled={cargandoUbic}
+              >
+                <span className="ubic-modo-icon">📍</span>
+                {cargandoUbic ? "Localizando..." : "Usar mi ubicación actual"}
+              </button>
+              <button
+                type="button"
+                className="ubic-modo-btn"
+                onClick={seleccionarEnMapa}
+              >
+                <span className="ubic-modo-icon">🗺️</span>
+                Seleccionar en el mapa
+              </button>
+            </div>
+          )}
+
+          {modo !== null && (
           <form className="tomdatos-form" onSubmit={handleSubmit}>
+            <button
+              type="button"
+              className="ubic-volver"
+              onClick={() => {
+                setModo(null);
+                setSugerencias([]);
+              }}
+            >
+              ← Cambiar método
+            </button>
+
+            {modo === "mapa" && (
+              <div className="ubic-buscador">
+                <input
+                  type="text"
+                  className="tomdatos-input"
+                  placeholder={`Buscar una calle en ${ciudadUsuario}`}
+                  value={busqueda}
+                  onChange={(e) => onBuscar(e.target.value)}
+                  autoComplete="off"
+                />
+                {sugerencias.length > 0 && (
+                  <ul className="ubic-sugerencias">
+                    {sugerencias.map((s, i) => (
+                      <li
+                        key={`${s.lat}-${s.lng}-${i}`}
+                        className="ubic-sugerencia"
+                        onClick={() => elegirSugerencia(s)}
+                      >
+                        {s.display_name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             <div className="mapa-ubicacion">
               <MapContainer
                 center={[posicion.lat, posicion.lng]}
-                zoom={14}
+                zoom={16}
                 style={{ height: "100%", width: "100%" }}
-                key={`${posicion.lat}-${posicion.lng}`}
               >
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <SelectorMapa posicion={posicion} setPosicion={setPosicion} />
+                <RecenterMapa posicion={posicion} />
+                <SelectorMapa
+                  posicion={posicion}
+                  onSeleccion={actualizarPosicion}
+                />
               </MapContainer>
             </div>
+
+            {direccionTexto && (
+              <div className="ubic-direccion">
+                <span className="ubic-direccion-label">
+                  Ubicación seleccionada
+                </span>
+                <span className="ubic-direccion-text">{direccionTexto}</span>
+              </div>
+            )}
 
             <div className="tomdatos-field">
               <label className="tomdatos-label">Referencia / indicaciones</label>
@@ -272,6 +441,7 @@ const ElegirUbicacion = ({ coti }) => {
               {loading ? "Procesando..." : "Confirmar turno"}
             </button>
           </form>
+          )}
 
           {mensaje && <p className="tomdatos-msg warn">{mensaje}</p>}
         </div>

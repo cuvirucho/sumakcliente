@@ -1,0 +1,61 @@
+// src/Partes/ulidades/geocoding.js
+// Geocodificación con Nominatim (OpenStreetMap). Gratuito, sin API key.
+// Política de uso: máx ~1 req/seg. Las llamadas desde la UI usan debounce.
+
+const BASE = "https://nominatim.openstreetmap.org";
+
+// Toma de un resultado de Nominatim el nombre de la ciudad,
+// probando los distintos campos donde OSM la puede colocar.
+const extraerCiudad = (address = {}) =>
+  address.city ||
+  address.town ||
+  address.village ||
+  address.county ||
+  address.state_district ||
+  address.state ||
+  "";
+
+// coordenadas -> { direccion, ciudad }
+export const reverseGeocode = async (lat, lng) => {
+  try {
+    const url = `${BASE}/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=es&zoom=18&addressdetails=1`;
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) return { direccion: "", ciudad: "" };
+    const data = await res.json();
+    return {
+      direccion: data.display_name || "",
+      ciudad: extraerCiudad(data.address),
+    };
+  } catch {
+    return { direccion: "", ciudad: "" };
+  }
+};
+
+// texto + ciudad -> [{ display_name, lat, lng }]  (acotado a la ciudad / Ecuador)
+export const buscarDirecciones = async (texto, ciudad) => {
+  const calle = texto.trim();
+  if (calle.length < 3) return [];
+  try {
+    const params = new URLSearchParams({
+      format: "jsonv2",
+      addressdetails: "1",
+      limit: "5",
+      countrycodes: "ec",
+      "accept-language": "es",
+      street: calle,
+    });
+    if (ciudad) params.set("city", ciudad);
+    const res = await fetch(`${BASE}/search?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.map((d) => ({
+      display_name: d.display_name,
+      lat: parseFloat(d.lat),
+      lng: parseFloat(d.lon),
+    }));
+  } catch {
+    return [];
+  }
+};
