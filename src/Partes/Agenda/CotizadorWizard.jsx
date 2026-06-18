@@ -51,6 +51,8 @@ import {
   duracionDeTipo,
   horaANumero,
   lugarDeServicio,
+  DIAS_SEMANA,
+  bloqueTieneCupo,
 } from "../../data/cotizador";
 
 // Arreglo del icono por defecto de Leaflet con bundlers (Vite).
@@ -126,6 +128,7 @@ const CotizadorWizard = () => {
   const [hora, setHora] = useState("");
   const [horasOcupadas, setHorasOcupadas] = useState([]);
   const [cargandoHoras, setCargandoHoras] = useState(false);
+  const [trabajadores, setTrabajadores] = useState([]); // [{ uid, horario }]
 
   // ── Código de descuento ─────────────────────────────────────────
   const [codigoInput, setCodigoInput] = useState("");
@@ -154,6 +157,30 @@ const CotizadorWizard = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+
+  // Carga una sola vez los trabajadores (usuarios con trabajador:true) y su
+  // horario. Se usa para calcular cuántos cupos hay por hora. Si falla o está
+  // vacío, se mantiene el fallback (cualquier turno solapado ocupa la hora).
+  useEffect(() => {
+    (async () => {
+      try {
+        const q = query(
+          collection(db, "usuarios"),
+          where("trabajador", "==", true),
+        );
+        const snap = await getDocs(q);
+        setTrabajadores(
+          snap.docs.map((d) => ({
+            uid: d.data().uid ?? d.id,
+            horario: d.data().horario || {},
+          })),
+        );
+      } catch (e) {
+        console.warn("Error cargando trabajadores:", e);
+        setTrabajadores([]); // dispara el fallback
+      }
+    })();
   }, []);
 
   // ── Selección de servicio (única) ──────────────────────────────
@@ -397,7 +424,7 @@ const CotizadorWizard = () => {
               (max, s) => Math.max(max, duracionDeTipo(s.tipoLimpieza)),
               duracionDeTipo("Normal"),
             );
-            return { inicio, fin: inicio + dur };
+            return { inicio, fin: inicio + dur, asignadoA: t.asignadoA ?? null };
           })
           .filter(Boolean);
         setHorasOcupadas(intervalos);
@@ -412,7 +439,9 @@ const CotizadorWizard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paso, fecha]);
 
-  // Bloques de inicio libres que caben en la jornada y no se solapan.
+  // Bloques de inicio libres: caben en la jornada y queda al menos un
+  // trabajador capaz de cubrir el turno (según su horario y sin otro turno
+  // asignado). Sin datos de trabajadores, cualquier turno solapado ocupa.
   const horasDisponibles = [];
   if (fechaValida) {
     const ahora = new Date();
@@ -422,11 +451,20 @@ const CotizadorWizard = () => {
     )}-${String(ahora.getDate()).padStart(2, "0")}`;
     const esHoy = fecha.trim() === hoy;
     const ahoraDecimal = ahora.getHours() + ahora.getMinutes() / 60;
+    // Día de semana (local) de la fecha elegida, mapeado a las claves del horario.
+    const [yy, mm, dd] = fecha.trim().split("-").map(Number);
+    const diaKey = DIAS_SEMANA[new Date(yy, mm - 1, dd).getDay()];
     for (let s = HORA_INICIO; s + duracionActual <= HORA_FIN; s++) {
       if (esHoy && s <= ahoraDecimal) continue;
       const fin = s + duracionActual;
-      const solapa = horasOcupadas.some((o) => s < o.fin && o.inicio < fin);
-      if (!solapa) {
+      const hayCupo = bloqueTieneCupo({
+        inicio: s,
+        dur: duracionActual,
+        diaKey,
+        ocupadas: horasOcupadas,
+        trabajadores,
+      });
+      if (hayCupo) {
         horasDisponibles.push({
           valor: `${String(s).padStart(2, "0")}:00`,
           etiqueta: `${String(s).padStart(2, "0")}:00–${String(fin).padStart(
@@ -478,30 +516,40 @@ const CotizadorWizard = () => {
     }
     setGuardando(true);
     try {
-      // Verifica que el bloque siga libre (otro pudo reservarlo).
+      // Verifica que el bloque siga con cupo (otro pudo reservarlo), usando la
+      // misma lógica de capacidad que mostró las horas disponibles.
       const q = query(
         collection(db, "turnos"),
         where("fecha", "==", fecha.trim()),
       );
       const snap = await getDocs(q);
       const inicioSel = horaANumero(hora);
-      const finSel = inicioSel + duracionActual;
-      const ocupado = snap.docs
+      const ocupadas = snap.docs
         .map((d) => d.data())
         .filter(
           (t) =>
             !ESTADOS_INACTIVOS.includes(String(t.estado || "").toLowerCase()),
         )
-        .some((t) => {
+        .map((t) => {
           const ini = horaANumero(t.hora);
-          if (ini == null) return false;
+          if (ini == null) return null;
           const servicios = t.cotizacion?.servicios ?? [];
           const dur = servicios.reduce(
             (max, s) => Math.max(max, duracionDeTipo(s.tipoLimpieza)),
             duracionDeTipo("Normal"),
           );
-          return inicioSel < ini + dur && ini < finSel;
-        });
+          return { inicio: ini, fin: ini + dur, asignadoA: t.asignadoA ?? null };
+        })
+        .filter(Boolean);
+      const [yy, mm, dd] = fecha.trim().split("-").map(Number);
+      const diaKey = DIAS_SEMANA[new Date(yy, mm - 1, dd).getDay()];
+      const ocupado = !bloqueTieneCupo({
+        inicio: inicioSel,
+        dur: duracionActual,
+        diaKey,
+        ocupadas,
+        trabajadores,
+      });
       if (ocupado) {
         setModal({
           tipo: "turno",

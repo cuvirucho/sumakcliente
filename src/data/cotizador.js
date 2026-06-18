@@ -291,3 +291,44 @@ export function lugarDeServicio(title = "") {
   if (title.includes("Airbnb")) return "Airbnb";
   return "";
 }
+
+// Claves del horario de cada trabajador, indexadas por Date.getDay() (0 = dom).
+export const DIAS_SEMANA = ["dom", "lun", "mar", "mie", "jue", "vie", "sab"];
+
+// ¿Cabe un turno en el bloque [inicio, inicio+dur) según la capacidad de
+// trabajadores? Comparte la misma fórmula que usa la app móvil.
+//   - inicio: hora de inicio (entero, en punto)
+//   - dur: duración del turno en horas
+//   - diaKey: clave del día ("lun", "mar", …) de la fecha elegida
+//   - ocupadas: intervalos ocupados [{ inicio, fin, asignadoA }]
+//   - trabajadores: [{ uid, horario }] (vacío => fallback de solape simple)
+export function bloqueTieneCupo({ inicio, dur, diaKey, ocupadas, trabajadores }) {
+  const fin = inicio + dur;
+  const solapados = ocupadas.filter((o) => inicio < o.fin && o.inicio < fin);
+
+  // Fallback: sin datos de trabajadores, cualquier turno solapado ocupa.
+  if (!trabajadores || trabajadores.length === 0) {
+    return solapados.length === 0;
+  }
+
+  // Trabajadores en jornada ese día/hora (el bloque cabe en su horario).
+  const enTurno = trabajadores.filter((w) => {
+    const h = w.horario?.[diaKey];
+    const iW = horaANumero(h?.inicio);
+    const fW = horaANumero(h?.fin);
+    return h?.activo && iW != null && fW != null && inicio >= iW && fin <= fW;
+  });
+
+  // Cuántos de ellos ya tienen un turno asignado solapado.
+  const ocupadosAsignados = enTurno.filter((w) =>
+    solapados.some((o) => o.asignadoA === w.uid),
+  ).length;
+
+  // Turnos solapados sin asignar (o asignados a alguien que no es trabajador):
+  // cada uno consume un cupo genérico.
+  const sinAsignar = solapados.filter(
+    (o) => !o.asignadoA || !trabajadores.some((w) => w.uid === o.asignadoA),
+  ).length;
+
+  return enTurno.length - ocupadosAsignados - sinAsignar > 0;
+}
