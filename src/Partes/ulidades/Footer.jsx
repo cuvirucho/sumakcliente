@@ -1,5 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { FaInstagram, FaWhatsapp, FaFacebookF } from "react-icons/fa";
+import {
+  IoCallOutline,
+  IoMailOutline,
+  IoLocationOutline,
+} from "react-icons/io5";
 
 const Footer = () => {
   return (
@@ -16,13 +22,13 @@ const Footer = () => {
           </p>
           <div className="footer__social">
             <a href="#" className="footer__social-link" aria-label="Instagram">
-              IG
+              <FaInstagram />
             </a>
             <a href="#" className="footer__social-link" aria-label="WhatsApp">
-              WA
+              <FaWhatsapp />
             </a>
             <a href="#" className="footer__social-link" aria-label="Facebook">
-              FB
+              <FaFacebookF />
             </a>
           </div>
         </div>
@@ -76,9 +82,15 @@ const Footer = () => {
 
         <div className="footer__col">
           <h4 className="footer__col-title">Contacto</h4>
-          <p className="footer__contact-item">+593 963 200 325</p>
-          <p className="footer__contact-item">sumakclean@gmail.com</p>
-          <p className="footer__contact-item">Ecuador</p>
+          <p className="footer__contact-item">
+            <IoCallOutline /> +593 963 200 325
+          </p>
+          <p className="footer__contact-item">
+            <IoMailOutline /> sumakclean@gmail.com
+          </p>
+          <p className="footer__contact-item">
+            <IoLocationOutline /> Ecuador
+          </p>
         </div>
       </div>
 

@@ -6,7 +6,7 @@ import Appointments from './Partes/Agenda/Appointments';
 import Navbar from './Partes/ulidades/Navbar';
 import Footer from './Partes/ulidades/Footer';
 import Homeia from './ia/Homeia';
-import Cotisadormnula from './Partes/ulidades/Cotisadormnula';
+import CotizadorWizard from './Partes/Agenda/CotizadorWizard';
 import Homeplamensual from './Planmseual/Homeplamensual';
 import ViewStream from './pages/ViewStream';
 import Perfil from './Partes/Perfil/Perfil';
@@ -28,7 +28,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/agendar" element={<Booking addcita={addAppointment} />} />
         <Route path="/pacmesual" element={<Homeplamensual addcita={addAppointment} />} />
-        <Route path="/cotisamanual" element={<Cotisadormnula addcita={addAppointment} />} />
+        <Route path="/cotisamanual" element={<CotizadorWizard />} />
 
         <Route path="/miscitas" element={<Appointments appointments={appointments} />} />
         <Route path="/perfil" element={<Perfil />} />

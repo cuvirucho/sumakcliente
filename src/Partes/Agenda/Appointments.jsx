@@ -13,6 +13,7 @@ import { useAuth } from "../ulidades/AuthContext";
 import AuthGate from "./AuthGate";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeCanvas } from "qrcode.react";
+import { IoVideocam, IoStar, IoSparkles } from "react-icons/io5";
 import Confetti from "react-confetti";
 import { useNavigate } from "react-router-dom";
 
@@ -267,7 +268,7 @@ const Appointments = () => {
                       navigate(`/view/${cita.id}`);
                     }}
                   >
-                    🔴 Ver en vivo
+                    <IoVideocam /> Ver en vivo
                   </button>
                 )}
                 {esCompletada(cita) && !yaCalificada(cita) && (
@@ -278,7 +279,7 @@ const Appointments = () => {
                       abrirCalificacion(cita);
                     }}
                   >
-                    ⭐ Calificar el servicio
+                    <IoStar /> Calificar el servicio
                   </button>
                 )}
               </motion.div>
@@ -374,7 +375,7 @@ const Appointments = () => {
                     className="btn-live"
                     onClick={() => navigate(`/view/${selectedCita.id}`)}
                   >
-                    🔴 Ver en vivo
+                    <IoVideocam /> Ver en vivo
                   </button>
                 )}
                 {esCompletada(selectedCita) && !yaCalificada(selectedCita) && (
@@ -385,7 +386,7 @@ const Appointments = () => {
                       abrirCalificacion(selectedCita);
                     }}
                   >
-                    ⭐ Calificar el servicio
+                    <IoStar /> Calificar el servicio
                   </button>
                 )}
               </motion.div>
@@ -412,7 +413,9 @@ const Appointments = () => {
               transition={{ type: "spring", stiffness: 340, damping: 28 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="tm-modal__title">¡Servicio completado! 🎉</h3>
+              <h3 className="tm-modal__title">
+                ¡Servicio completado! <IoSparkles />
+              </h3>
               <p className="tm-modal__text">
                 Por favor califica el servicio cuando puedas.
               </p>

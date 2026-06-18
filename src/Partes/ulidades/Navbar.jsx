@@ -1,5 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import {
+  IoHomeOutline,
+  IoCalendarNumberOutline,
+  IoListOutline,
+  IoPersonOutline,
+} from 'react-icons/io5';
 
 const Navbar = () => {
   return (
@@ -17,24 +23,28 @@ const Navbar = () => {
           end
           className={({ isActive }) => `navbar__link${isActive ? ' navbar__link--active' : ''}`}
         >
+          <IoHomeOutline className="navbar__link-icon" />
           Inicio
         </NavLink>
         <NavLink
           to="/agendar"
           className={({ isActive }) => `navbar__link${isActive ? ' navbar__link--active' : ''}`}
         >
+          <IoCalendarNumberOutline className="navbar__link-icon" />
           Agendar
         </NavLink>
         <NavLink
           to="/miscitas"
           className={({ isActive }) => `navbar__link${isActive ? ' navbar__link--active' : ''}`}
         >
+          <IoListOutline className="navbar__link-icon" />
           Mis citas
         </NavLink>
         <NavLink
           to="/perfil"
           className={({ isActive }) => `navbar__link${isActive ? ' navbar__link--active' : ''}`}
         >
+          <IoPersonOutline className="navbar__link-icon" />
           Perfil
         </NavLink>
       </div>

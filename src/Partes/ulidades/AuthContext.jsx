@@ -42,7 +42,14 @@ export const AuthProvider = ({ children }) => {
     await updateProfile(cred.user, {
       displayName: `${nombre} ${apellido}`.trim(),
     });
-    const datos = { nombre, apellido, correo, celular, uid: cred.user.uid };
+    const datos = {
+      nombre,
+      apellido,
+      correo,
+      celular,
+      uid: cred.user.uid,
+      creadoEn: serverTimestamp(),
+    };
     await setDoc(doc(db, "usuarios", cred.user.uid), datos);
     setPerfil(datos);
     return cred.user;

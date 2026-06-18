@@ -9,6 +9,15 @@ import {
   collection,
 } from "firebase/firestore";
 import { db } from "../Firebase/Firebase";
+import {
+  IoCheckmark,
+  IoClose,
+  IoEllipse,
+  IoVolumeMute,
+  IoVolumeHigh,
+  IoExpand,
+  IoContract,
+} from "react-icons/io5";
 
 // TURN configurable por env (debe coincidir con el del emisor). El openrelay
 // gratuito limita el ancho de banda y suele dejar el video en negro. Define un
@@ -491,7 +500,13 @@ export default function ViewStream() {
               <div className="stream-spinner" aria-hidden="true" />
             ) : (
               <div className="stream-status-icon" aria-hidden="true">
-                {status === "ended" ? "✓" : status === "error" ? "✕" : "●"}
+                {status === "ended" ? (
+                  <IoCheckmark />
+                ) : status === "error" ? (
+                  <IoClose />
+                ) : (
+                  <IoEllipse />
+                )}
               </div>
             )}
             <p className="stream-status-msg">{info.title}</p>
@@ -520,7 +535,7 @@ export default function ViewStream() {
             toggleMute();
           }}
         >
-          🔇 Toca para activar el sonido
+          <IoVolumeMute /> Toca para activar el sonido
         </button>
       )}
 
@@ -536,7 +551,7 @@ export default function ViewStream() {
             }}
             aria-label={muted ? "Activar sonido" : "Silenciar"}
           >
-            {muted ? "🔇" : "🔊"}
+            {muted ? <IoVolumeMute /> : <IoVolumeHigh />}
           </button>
           <button
             type="button"
@@ -547,7 +562,7 @@ export default function ViewStream() {
             }}
             aria-label={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
           >
-            {isFullscreen ? "⤡" : "⤢"}
+            {isFullscreen ? <IoContract /> : <IoExpand />}
           </button>
         </div>
       )}
