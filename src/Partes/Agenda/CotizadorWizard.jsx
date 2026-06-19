@@ -782,6 +782,17 @@ const CotizadorWizard = () => {
                       );
                     })}
                   </div>
+
+                  {tipoLimpieza && (
+                    <div className="wiz-incluye">
+                      <p className="wiz-incluye-label">Incluye</p>
+                      <ul>
+                        {tipoLimpieza.incluye.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
 

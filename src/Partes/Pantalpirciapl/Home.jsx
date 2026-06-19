@@ -7,9 +7,9 @@ const services = [
     id: 1,
     title: "Limpieza de Hogares",
     Precios: [
-      { size: "Pequeño (1-3 habitaciones)", price: 35 },
+      { size: "Pequeño (1-3 habitaciones)", price: 38 },
       { size: "Mediano (3-5 habitaciones)", price: 56 },
-      { size: "Grande (5+ habitaciones)", price: 85 },
+      { size: "Grande (5+ habitaciones)", price: 95 },
     ],
     description:
       "Espacios que respiran, hogares que brillan. Tú eliges el nivel de limpieza, nosotros nos encargamos del resto.",
