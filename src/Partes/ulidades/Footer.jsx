@@ -6,6 +6,7 @@ import {
   IoMailOutline,
   IoLocationOutline,
 } from "react-icons/io5";
+import { cloudinaryOptimized } from "./cloudinary";
 
 const Footer = () => {
   return (
@@ -14,8 +15,13 @@ const Footer = () => {
         <div className="footer__brand">
           <img
             className="footer__logo"
-            src="https://res.cloudinary.com/db8e98ggo/image/upload/v1760676135/web_indeitidad_digitla_videos_ads_servison_plkukt.png"
+            src={cloudinaryOptimized(
+              "https://res.cloudinary.com/db8e98ggo/image/upload/v1760676135/web_indeitidad_digitla_videos_ads_servison_plkukt.png",
+              { w: 240 },
+            )}
             alt="Sumak Clean"
+            loading="lazy"
+            decoding="async"
           />
           <p className="footer__tagline">
             Limpieza profesional para tu espacio.
@@ -98,6 +104,12 @@ const Footer = () => {
         <p className="footer__copy">
           © 2025 Sumak Clean. Todos los derechos reservados.
         </p>
+        <Link to="/terminos" className="footer__legal-link">
+          Términos y Condiciones
+        </Link>
+        <Link to="/politica-privacidad" className="footer__legal-link">
+          Política de Privacidad
+        </Link>
       </div>
     </footer>
   );

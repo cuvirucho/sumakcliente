@@ -8,6 +8,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../Firebase/Firebase";
+import { LEGAL_UPDATED } from "../../data/legalContent";
 
 const AuthContext = createContext(null);
 
@@ -49,6 +50,11 @@ export const AuthProvider = ({ children }) => {
       celular,
       uid: cred.user.uid,
       creadoEn: serverTimestamp(),
+      // El registro solo es posible tras aceptar los términos (ver AuthGate),
+      // por eso dejamos constancia de la aceptación, su fecha y la versión.
+      aceptaTerminos: true,
+      terminosAceptadosEn: serverTimestamp(),
+      terminosVersion: LEGAL_UPDATED,
     };
     await setDoc(doc(db, "usuarios", cred.user.uid), datos);
     setPerfil(datos);

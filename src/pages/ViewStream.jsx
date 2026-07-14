@@ -19,6 +19,13 @@ import {
   IoContract,
 } from "react-icons/io5";
 
+// Diagnóstico solo en desarrollo: en producción no se emiten logs de WebRTC ni
+// se recolectan stats periódicas (ruido en consola y trabajo innecesario).
+const DEBUG = import.meta.env.DEV;
+const dlog = (...args) => {
+  if (DEBUG) console.log(...args);
+};
+
 // TURN configurable por env (debe coincidir con el del emisor). El openrelay
 // gratuito limita el ancho de banda y suele dejar el video en negro. Define un
 // TURN confiable con VITE_TURN_URLS (varias URLs separadas por comas),
@@ -129,9 +136,9 @@ async function logStreamDiagnostics(pc, label) {
         };
       }
     });
-    console.log("[stream-diag]", label, JSON.stringify({ pair, video }));
+    dlog("[stream-diag]", label, JSON.stringify({ pair, video }));
   } catch (e) {
-    console.log("[stream-diag]", label, "error", e && e.message);
+    dlog("[stream-diag]", label, "error", e && e.message);
   }
 }
 
@@ -186,6 +193,7 @@ export default function ViewStream() {
 
     // Inicia el log periódico de diagnóstico de stats una vez conectado.
     function startStatsLogging(pc) {
+      if (!DEBUG) return;
       clearStatsInterval();
       let ticks = 0;
       statsIntervalRef.current = setInterval(() => {
@@ -270,7 +278,7 @@ export default function ViewStream() {
         if (event.candidate) {
           const typ =
             (event.candidate.candidate.match(/ typ (\S+)/) || [])[1];
-          console.log("WEB CAND", typ);
+          dlog("WEB CAND", typ);
           await addDoc(
             collection(
               db,
@@ -283,17 +291,17 @@ export default function ViewStream() {
             event.candidate.toJSON(),
           );
         } else {
-          console.log("WEB CAND fin");
+          dlog("WEB CAND fin");
         }
       };
 
       pc.oniceconnectionstatechange = () => {
-        console.log("WEB ICE", pc.iceConnectionState);
+        dlog("WEB ICE", pc.iceConnectionState);
       };
 
       pc.onconnectionstatechange = () => {
         if (cancelled || pcRef.current !== pc) return;
-        console.log("WEB CONN", pc.connectionState);
+        dlog("WEB CONN", pc.connectionState);
         if (pc.connectionState === "failed") {
           setStatus("connecting");
           clearReconnectTimers();
@@ -451,19 +459,19 @@ export default function ViewStream() {
         onLoadedMetadata={(e) => {
           const w = e.target.videoWidth;
           const h = e.target.videoHeight;
-          console.log("WEB VIDEO", w, "x", h);
+          dlog("WEB VIDEO", w, "x", h);
           setVideoDims({ w, h });
         }}
         onResize={(e) => {
           const w = e.target.videoWidth;
           const h = e.target.videoHeight;
-          console.log("WEB VIDEO RESIZE", w, "x", h);
+          dlog("WEB VIDEO RESIZE", w, "x", h);
           setVideoDims({ w, h });
         }}
       />
 
-      {/* Diagnóstico visible: resolución del video recibido. */}
-      {isLive && videoDims && (
+      {/* Diagnóstico visible (solo en desarrollo): resolución del video. */}
+      {DEBUG && isLive && videoDims && (
         <span
           style={{
             position: "absolute",

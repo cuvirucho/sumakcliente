@@ -1,138 +1,147 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { IoCheckmarkCircle, IoStar, IoSparklesOutline } from "react-icons/io5";
+import { db } from "../Firebase/Firebase";
+import { useAuth } from "../Partes/ulidades/AuthContext";
+import AuthGate from "../Partes/Agenda/AuthGate";
+import {
+  planesMensuales,
+  PLAN_DESTACADO,
+  elegirPlanActivo,
+} from "../data/cotizador";
+
+// Texto humano para el estado de un plan ya solicitado.
+const textoEstado = (estado) => {
+  const e = String(estado || "").toLowerCase();
+  if (e === "aprobado") return "Ya tienes un plan activo.";
+  if (e === "recibido") return "Tienes un plan en revisión.";
+  return "";
+};
+
+const testimonios = [
+  {
+    nombre: "María López",
+    texto:
+      "Contraté el plan premium y mi casa nunca había estado tan impecable. ¡Vale cada centavo!",
+    img: "https://randomuser.me/api/portraits/women/65.jpg",
+  },
+  {
+    nombre: "Carlos Pérez",
+    texto:
+      "El servicio es excelente, puntuales y muy cuidadosos. 100% recomendados.",
+    img: "https://randomuser.me/api/portraits/men/75.jpg",
+  },
+  {
+    nombre: "Andrea Gómez",
+    texto:
+      "Desde que uso el plan Esencial, tengo más tiempo libre y mi hogar brilla.",
+    img: "https://randomuser.me/api/portraits/women/48.jpg",
+  },
+];
 
 const Homeplamensual = () => {
-  const navigate = useNavigate();
+  const { user, perfil } = useAuth();
 
-  const planes = [
-    {
-      id: 1,
-      nombre: "Plan Básico",
-      descripcion:
-        "Perfecto para mantener espacios limpios y organizados semanalmente, ya sea tu hogar, oficina o restaurante.",
-      frecuencia: "1 vez por semana",
-      precio: 85,
-      beneficios: [
-        "Limpieza y Desinfección general",
-        "Aromatización",
-        "Lavado de platos o utensilios simples",
-      ],
-      color: "#00BFA6",
+  const [confirmPlan, setConfirmPlan] = useState(null); // plan pendiente de confirmar
+  const [guardando, setGuardando] = useState(false);
+  const [authAbierto, setAuthAbierto] = useState(false);
+  const [modal, setModal] = useState(null); // { tipo, texto }
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Plan activo del usuario (si lo hay) para bloquear la contratación de uno
+  // nuevo. Cacheado con React Query (stale-while-revalidate) y solo con sesión.
+  // `planExistente` = plan aprobado/recibido | null.
+  const {
+    data: planExistente = null,
+    isLoading: cargando,
+    refetch: refetchPlan,
+  } = useQuery({
+    queryKey: ["planActivo", user?.uid],
+    enabled: !!user,
+    queryFn: async () => {
+      const snap = await getDocs(
+        query(
+          collection(db, "planesMensuales"),
+          where("clienteId", "==", user.uid),
+        ),
+      );
+      return elegirPlanActivo(snap.docs.map((d) => d.data()));
     },
-    {
-      id: 2,
-      nombre: "Plan Premium",
-      descripcion:
-        "No esperes más: transforma tu hogar, oficina o restaurante con un servicio que combina lujo y eficiencia.",
-      frecuencia: "2 veces por semana",
-      precio: 165,
-      beneficios: [
-        "Todo el plan básico",
-        "Limpieza profunda",
-        "Limpieza de vehiculos",
-        "Reposición de artículos de baño",
-        "Control de plagas básico",
-      ],
-      color: "#00BFA6",
-    },
-    {
-      id: 3,
-      nombre: "Plan Deluxe",
-      descripcion: "Máximo confort y limpieza sin preocupaciones.",
-      frecuencia: "3 veces por semana",
-      precio: 220,
-      beneficios: [
-        "Todo el plan básico",
-        "Todo el plan Premium",
-        "Lavado y cuidado express de textiles, tapicería y uniformes",
-        "Limpieza de vehículos",
-        "Cuidado de plantas y jardines internos o exteriores",
-        "Preparación de rincones de relajación o productividad",
-      ],
-      color: "#00BFA6",
-    },
-  ];
+  });
 
-  const multiplicadores = {
-    pequeño: 1,
-    mediano: 1.6,
-    grande: 2.1,
-  };
+  // Al iniciar sesión desde el gate, cerrarlo automáticamente.
+  useEffect(() => {
+    if (user) setAuthAbierto(false);
+  }, [user]);
 
-  const lugares = {
-    Casa: "Casa",
-    oficina: "Oficina",
-    restaurante: "Restaurante",
-  };
-
-  const testimonios = [
-    {
-      nombre: "María López",
-      texto:
-        "Contraté el plan Deluxe y mi casa nunca había estado tan impecable. ¡Vale cada centavo!",
-      img: "https://randomuser.me/api/portraits/women/65.jpg",
-    },
-    {
-      nombre: "Carlos Pérez",
-      texto:
-        "El servicio es excelente, puntuales y muy cuidadosos. 100% recomendados.",
-      img: "https://randomuser.me/api/portraits/men/75.jpg",
-    },
-    {
-      nombre: "Andrea Gómez",
-      texto:
-        "Desde que uso el plan Premium, tengo más tiempo libre y mi hogar brilla.",
-      img: "https://randomuser.me/api/portraits/women/48.jpg",
-    },
-  ];
-
-  const [planSeleccionado, setPlanSeleccionado] = useState(null);
-  const [tamanoSeleccionado, setTamanoSeleccionado] = useState("pequeño");
-  const [lugar, setLugar] = useState("Casa");
-  const handleSeleccionar = (plan) => {
-    setPlanSeleccionado(plan);
-    setTamanoSeleccionado("pequeño");
-    setLugar("Casa");
-  };
-
-  const handleContinuar = () => {
-    if (!planSeleccionado) {
-      alert("Selecciona un plan antes de continuar.");
-      return;
-    }
-
-    const precioFinal =
-      planSeleccionado.precio * multiplicadores[tamanoSeleccionado];
-
-    const orden = {
-      id: `PLAN-${(Math.random() * 1000).toFixed(0)}`,
-      ...planSeleccionado,
-      tamano: tamanoSeleccionado,
-      precioFinal,
-      lugar: lugar,
-      fechaSeleccion: new Date().toISOString(),
-    };
-
-    const mensaje = `Hola! Me gustaría contratar el *${planSeleccionado.nombre}* (${tamanoSeleccionado}) para  ${lugar} con un precio de *$${precioFinal.toFixed(
-      2,
-    )}/mes*.
-
-Frecuencia: ${planSeleccionado.frecuencia}
-Beneficios:
-${planSeleccionado.beneficios.map((b) => `• ${b}`).join("\n")}
-
-¿Podrían ayudarme con más información?`;
-
-    const numero = "593963200325";
-    const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, "_blank");
-  };
+  const bloqueado = !!planExistente;
 
   const scrollToPlanes = () => {
     document
       .getElementById("planes-section")
-      .scrollIntoView({ behavior: "smooth" });
+      ?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // "Adquirir Plan": sin sesión abre el gate; con sesión abre la confirmación.
+  const adquirir = (plan) => {
+    if (bloqueado) return;
+    if (!user) {
+      setAuthAbierto(true);
+      return;
+    }
+    setConfirmPlan(plan);
+  };
+
+  // Guarda el plan en Firestore con la misma estructura que la app móvil
+  // (SumakApp/src/screens/PlanesMensualesScreen.js). La Cloud Function
+  // `onPlanCreado` verifica precio/servicios contra el catálogo servidor.
+  const confirmarCompra = async () => {
+    if (!confirmPlan || !user) return;
+    setGuardando(true);
+    try {
+      await addDoc(collection(db, "planesMensuales"), {
+        clienteId: user.uid,
+        clienteNombre: perfil?.nombre ?? "",
+        clienteEmail: perfil?.correo ?? user.email ?? "",
+        clienteCelular: perfil?.celular ?? "",
+        planId: confirmPlan.id,
+        nombrePlan: confirmPlan.nombre,
+        precio: confirmPlan.precio,
+        serviciosTotales: confirmPlan.serviciosTotales,
+        serviciosUsados: 0,
+        tipoServicios: confirmPlan.tipoServicios,
+        fechaSolicitud: serverTimestamp(),
+        estado: "recibido",
+      });
+      setConfirmPlan(null);
+      await refetchPlan(); // deja la página en estado "bloqueado"
+      setModal({
+        tipo: "exito",
+        texto:
+          "¡Solicitud enviada! Tu plan está en revisión. Te avisaremos cuando sea aprobado.",
+      });
+    } catch (e) {
+      console.error(e);
+      setConfirmPlan(null);
+      setModal({
+        tipo: "error",
+        texto: "No se pudo enviar la solicitud. Intenta de nuevo.",
+      });
+    } finally {
+      setGuardando(false);
+    }
   };
 
   return (
@@ -176,29 +185,35 @@ ${planSeleccionado.beneficios.map((b) => `• ${b}`).join("\n")}
       >
         <h2 className="homeplan-titulo">Elige tu Plan Mensual</h2>
         <p className="homeplan-descripcion">
-          Diseñado para tu comodidad. Disfruta de un espacio limpio sin
-          esfuerzo, elige el plan que más se adapte a ti.
+          Contrata un plan y ahorra manteniendo tu espacio impecable todo el
+          mes. Elige el que más se adapte a ti.
         </p>
 
-        <div className="homeplan-lista">
-          {planes.map((plan) => {
-            const esSeleccionado = planSeleccionado?.id === plan.id;
-            const precioFinal = (
-              plan.precio * multiplicadores[tamanoSeleccionado]
-            ).toFixed(2);
+        {bloqueado && (
+          <div className="homeplan-aviso">
+            <IoStar />
+            <span>{textoEstado(planExistente.estado)}</span>
+          </div>
+        )}
 
+        <div className="homeplan-lista">
+          {planesMensuales.map((plan) => {
+            const destacado = plan.id === PLAN_DESTACADO;
             return (
               <motion.div
                 key={plan.id}
-                className={`homeplan-card ${esSeleccionado ? "seleccionado" : ""}`}
-                style={{ "--accent": plan.color }}
-                onClick={() => handleSeleccionar(plan)}
+                className={`homeplan-card${destacado ? " destacado" : ""}`}
                 initial={{ opacity: 0, y: 40 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4 }}
                 whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
               >
+                {destacado && (
+                  <div className="homeplan-badge">
+                    <IoStar /> RECOMENDADO
+                  </div>
+                )}
+
                 <div className="homeplan-top">
                   <div>
                     <h3>{plan.nombre}</h3>
@@ -207,81 +222,34 @@ ${planSeleccionado.beneficios.map((b) => `• ${b}`).join("\n")}
                 </div>
 
                 <div className="homeplan-precio">
-                  <span>${precioFinal}</span>
+                  <span>${plan.precio}</span>
                   <small>/mes</small>
                 </div>
 
-                <p className="homeplan-frecuencia">
-                  <strong>Frecuencia:</strong> {plan.frecuencia}
-                </p>
-
-                <ul className="homeplan-beneficios">
-                  {plan.beneficios.map((b, i) => (
-                    <li key={i}>{b}</li>
+                <ul className="homeplan-incluye">
+                  {plan.incluye.map((item, i) => (
+                    <li key={i}>
+                      <IoCheckmarkCircle />
+                      <span>{item}</span>
+                    </li>
                   ))}
                 </ul>
 
-                {/* Selector de tamaño */}
-                {esSeleccionado && (
-                  <div className="homeplan-tamanos">
-                    <label>Selecciona el tamaño:</label>
-                    <div className="tamanos-opciones">
-                      {Object.keys(multiplicadores).map((tam) => (
-                        <button
-                          key={tam}
-                          className={`tamano-btn ${tamanoSeleccionado === tam ? "activo" : ""}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setTamanoSeleccionado(tam);
-                          }}
-                        >
-                          {tam.charAt(0).toUpperCase() + tam.slice(1)}
-                        </button>
-                      ))}
-                    </div>
+                <div className="homeplan-chip">
+                  <IoSparklesOutline />
+                  {plan.serviciosTotales} servicios incluidos
+                </div>
 
-                    {/*elige par que seria entr restaurrtan csa o foicna*/}
-
-                    <label className="lugtar">Selecciona un lugar:</label>
-                    <div className="tamanos-opciones">
-                      {Object.keys(lugares).map((tam) => (
-                        <button
-                          key={tam}
-                          className={`tamano-btn ${lugar === tam ? "activo" : ""}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLugar(tam);
-                          }}
-                        >
-                          {lugares[tam]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <AnimatePresence>
-                  {esSeleccionado && (
-                    <motion.div
-                      className="homeplan-seleccionado"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                    >
-                      <motion.button
-                        className="homeplan-btn-continuar"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleContinuar();
-                        }}
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                      >
-                        Continuar
-                      </motion.button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <button
+                  type="button"
+                  className={`homeplan-btn-continuar${
+                    destacado ? " gold" : ""
+                  }`}
+                  onClick={() => adquirir(plan)}
+                  disabled={bloqueado || cargando}
+                >
+                  {bloqueado ? "No disponible" : "Adquirir Plan"}
+                </button>
               </motion.div>
             );
           })}
@@ -323,6 +291,105 @@ ${planSeleccionado.beneficios.map((b) => `• ${b}`).join("\n")}
           <button onClick={scrollToPlanes}>Comenzar ahora</button>
         </motion.div>
       </section>
+
+      {/* Modal de confirmación de compra */}
+      <AnimatePresence>
+        {confirmPlan && (
+          <motion.div
+            className="tm-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => !guardando && setConfirmPlan(null)}
+          >
+            <motion.div
+              className="tm-modal tm-modal--turno"
+              initial={{ opacity: 0, scale: 0.88, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 16 }}
+              transition={{ type: "spring", stiffness: 340, damping: 28 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="tm-modal__title">Confirmar plan</h3>
+              <p className="tm-modal__text">
+                ¿Deseas adquirir el {confirmPlan.nombre} por $
+                {confirmPlan.precio}/mes? Tu solicitud quedará en revisión.
+              </p>
+              <button
+                className="tm-modal__btn"
+                onClick={confirmarCompra}
+                disabled={guardando}
+              >
+                {guardando ? "Enviando…" : "Confirmar"}
+              </button>
+              <button
+                className="tm-modal__btn tm-modal__btn--sec"
+                onClick={() => setConfirmPlan(null)}
+                disabled={guardando}
+              >
+                Cancelar
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de resultado (éxito / error) */}
+      <AnimatePresence>
+        {modal && (
+          <motion.div
+            className="tm-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setModal(null)}
+          >
+            <motion.div
+              className={`tm-modal tm-modal--${modal.tipo}`}
+              initial={{ opacity: 0, scale: 0.88, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 16 }}
+              transition={{ type: "spring", stiffness: 340, damping: 28 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="tm-modal__title">
+                {modal.tipo === "exito" ? "¡Solicitud enviada!" : "Algo salió mal"}
+              </h3>
+              <p className="tm-modal__text">{modal.texto}</p>
+              <button className="tm-modal__btn" onClick={() => setModal(null)}>
+                Entendido
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Gate de sesión: iniciar sesión / registrarse para contratar */}
+      <AnimatePresence>
+        {authAbierto && (
+          <motion.div
+            className="tm-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setAuthAbierto(false)}
+          >
+            <motion.div
+              className="homeplan-auth-modal"
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              transition={{ type: "spring", stiffness: 320, damping: 28 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="homeplan-auth-intro">
+                Inicia sesión o regístrate para contratar tu plan.
+              </p>
+              <AuthGate />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

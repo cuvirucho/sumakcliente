@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapContainer,
@@ -19,7 +20,12 @@ import {
   where,
   getDocs,
   addDoc,
+  doc,
+  updateDoc,
+  arrayUnion,
+  serverTimestamp,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import {
   IoCheckmark,
   IoAdd,
@@ -32,9 +38,11 @@ import {
   IoLocateOutline,
   IoDocumentTextOutline,
   IoCheckmarkCircle,
+  IoSearchOutline,
+  IoCloseOutline,
 } from "react-icons/io5";
 import { MdCleaningServices } from "react-icons/md";
-import { db } from "../../Firebase/Firebase";
+import { db, functions } from "../../Firebase/Firebase";
 import { getDeviceId } from "../ulidades/deviceId";
 import { useAuth } from "../ulidades/AuthContext";
 import { reverseGeocode, buscarDirecciones } from "../ulidades/geocoding";
@@ -45,7 +53,6 @@ import {
   extras,
   adicionales,
   tiposLimpieza,
-  ESTADOS_INACTIVOS,
   HORA_INICIO,
   HORA_FIN,
   duracionDeTipo,
@@ -54,6 +61,22 @@ import {
   DIAS_SEMANA,
   bloqueTieneCupo,
 } from "../../data/cotizador";
+
+// Ocupación por fecha SIN PII: la calcula la Cloud Function `obtenerDisponibilidad`
+// con el Admin SDK. Antes el cliente leía TODOS los turnos de la fecha (incluida
+// la PII de otros clientes) solo para derivar la ocupación. Devuelve intervalos
+// { inicio, fin, asignadoA }.
+async function obtenerIntervalos(fechaStr) {
+  const fn = httpsCallable(functions, "obtenerDisponibilidad");
+  const { data } = await fn({ fecha: fechaStr });
+  return (Array.isArray(data?.intervalos) ? data.intervalos : [])
+    .map((i) => ({
+      inicio: Number(i?.inicio),
+      fin: Number(i?.fin),
+      asignadoA: i?.asignadoA ?? null,
+    }))
+    .filter((i) => Number.isFinite(i.inicio) && Number.isFinite(i.fin));
+}
 
 // Arreglo del icono por defecto de Leaflet con bundlers (Vite).
 const defaultIcon = L.icon({
@@ -126,9 +149,6 @@ const CotizadorWizard = () => {
   // ── Fecha / hora ────────────────────────────────────────────────
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
-  const [horasOcupadas, setHorasOcupadas] = useState([]);
-  const [cargandoHoras, setCargandoHoras] = useState(false);
-  const [trabajadores, setTrabajadores] = useState([]); // [{ uid, horario }]
 
   // ── Código de descuento ─────────────────────────────────────────
   const [codigoInput, setCodigoInput] = useState("");
@@ -143,6 +163,7 @@ const CotizadorWizard = () => {
   const [ciudadUsuario, setCiudadUsuario] = useState(CIUDAD_DEFECTO);
   const [busqueda, setBusqueda] = useState("");
   const [sugerencias, setSugerencias] = useState([]);
+  const [buscandoDir, setBuscandoDir] = useState(false);
   const [obteniendoUbic, setObteniendoUbic] = useState(false);
 
   // ── Asistente ───────────────────────────────────────────────────
@@ -153,35 +174,33 @@ const CotizadorWizard = () => {
 
   const reverseTimer = useRef(null);
   const buscarTimer = useRef(null);
+  const buscarGenRef = useRef(0);
   const autoUbicIntentada = useRef(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  // Carga una sola vez los trabajadores (usuarios con trabajador:true) y su
-  // horario. Se usa para calcular cuántos cupos hay por hora. Si falla o está
-  // vacío, se mantiene el fallback (cualquier turno solapado ocupa la hora).
-  useEffect(() => {
-    (async () => {
-      try {
-        const q = query(
-          collection(db, "usuarios"),
-          where("trabajador", "==", true),
-        );
-        const snap = await getDocs(q);
-        setTrabajadores(
-          snap.docs.map((d) => ({
-            uid: d.data().uid ?? d.id,
-            horario: d.data().horario || {},
-          })),
-        );
-      } catch (e) {
-        console.warn("Error cargando trabajadores:", e);
-        setTrabajadores([]); // dispara el fallback
-      }
-    })();
-  }, []);
+  // Trabajadores (usuarios con trabajador:true) y su horario, para calcular
+  // cuántos cupos hay por hora. Cacheado con React Query (stale-while-revalidate):
+  // cambian poco, así que se comparten entre montajes y se persisten entre
+  // recargas. Si falla o está vacío, se mantiene el fallback (cualquier turno
+  // solapado ocupa la hora).
+  const { data: trabajadores = [] } = useQuery({
+    queryKey: ["trabajadores"],
+    queryFn: async () => {
+      const q = query(
+        collection(db, "usuarios"),
+        where("trabajador", "==", true),
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({
+        uid: d.data().uid ?? d.id,
+        horario: d.data().horario || {},
+      }));
+    },
+    staleTime: 30 * 60 * 1000,
+  });
 
   // ── Selección de servicio (única) ──────────────────────────────
   const elegirServicio = (service) => {
@@ -250,7 +269,14 @@ const CotizadorWizard = () => {
         setCodigoError("Código no válido");
         return;
       }
-      setCodigoAplicado({ codigo: valor, porcentaje });
+      // Uso único por usuario: si el uid ya está en `usos`, se rechaza.
+      const usos = Array.isArray(data.usos) ? data.usos : [];
+      if (user?.uid && usos.includes(user.uid)) {
+        setCodigoAplicado(null);
+        setCodigoError("Ya usaste este código.");
+        return;
+      }
+      setCodigoAplicado({ codigo: valor, porcentaje, docId: snap.docs[0].id });
     } catch (e) {
       console.warn("Error validando código:", e);
       setCodigoError("No se pudo validar el código. Intenta de nuevo.");
@@ -370,74 +396,74 @@ const CotizadorWizard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paso]);
 
-  // Buscador de direcciones con debounce.
+  // Buscador de direcciones con debounce + guarda de generación (descarta
+  // respuestas viejas) y sesgo de proximidad a la ubicación actual.
   const onBuscar = (texto) => {
     setBusqueda(texto);
     if (buscarTimer.current) clearTimeout(buscarTimer.current);
+    const gen = ++buscarGenRef.current;
     if (texto.trim().length < 3) {
       setSugerencias([]);
+      setBuscandoDir(false);
       return;
     }
+    setBuscandoDir(true);
     buscarTimer.current = setTimeout(async () => {
-      const res = await buscarDirecciones(texto, ciudadUsuario);
+      const res = await buscarDirecciones(texto, {
+        lat: ubicacion?.lat,
+        lng: ubicacion?.lng,
+        ciudad: ciudadUsuario,
+      });
+      if (buscarGenRef.current !== gen) return; // respuesta vieja: descartar
       setSugerencias(res);
-    }, 400);
+      setBuscandoDir(false);
+    }, 600);
   };
 
   const elegirSugerencia = (s) => {
     setUbicacion({ lat: s.lat, lng: s.lng });
     setDireccionTexto(s.display_name);
+    if (s.ciudad) setCiudadUsuario(s.ciudad);
     setBusqueda("");
     setSugerencias([]);
+    setBuscandoDir(false);
+  };
+
+  const limpiarBusqueda = () => {
+    buscarGenRef.current += 1; // invalida respuestas en vuelo
+    setBusqueda("");
+    setSugerencias([]);
+    setBuscandoDir(false);
+  };
+
+  const onBusquedaKeyDown = (e) => {
+    if (e.key === "Enter" && sugerencias.length > 0) {
+      e.preventDefault();
+      elegirSugerencia(sugerencias[0]);
+    } else if (e.key === "Escape") {
+      limpiarBusqueda();
+    }
   };
 
   // ── Disponibilidad de horas (según duración del servicio) ────────
   const duracionActual = duracionDeTipo(tipoNombre);
   const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fecha.trim());
 
+  // Al cambiar la fecha se descarta la hora elegida (podría ya no estar libre).
   useEffect(() => {
-    if (paso !== 3) return;
     setHora("");
-    if (!fechaValida) {
-      setHorasOcupadas([]);
-      return;
-    }
-    const cargar = async () => {
-      setCargandoHoras(true);
-      try {
-        const q = query(
-          collection(db, "turnos"),
-          where("fecha", "==", fecha.trim()),
-        );
-        const snap = await getDocs(q);
-        const intervalos = snap.docs
-          .map((d) => d.data())
-          .filter(
-            (t) =>
-              !ESTADOS_INACTIVOS.includes(String(t.estado || "").toLowerCase()),
-          )
-          .map((t) => {
-            const inicio = horaANumero(t.hora);
-            if (inicio == null) return null;
-            const servicios = t.cotizacion?.servicios ?? [];
-            const dur = servicios.reduce(
-              (max, s) => Math.max(max, duracionDeTipo(s.tipoLimpieza)),
-              duracionDeTipo("Normal"),
-            );
-            return { inicio, fin: inicio + dur, asignadoA: t.asignadoA ?? null };
-          })
-          .filter(Boolean);
-        setHorasOcupadas(intervalos);
-      } catch (e) {
-        console.warn("Error cargando horas ocupadas:", e);
-        setHorasOcupadas([]);
-      } finally {
-        setCargandoHoras(false);
-      }
-    };
-    cargar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paso, fecha]);
+  }, [fecha]);
+
+  // Ocupación de la fecha elegida para MOSTRAR las horas libres. Cacheada por
+  // fecha (staleTime corto): evita re-consultar la CF al navegar entre pasos.
+  // Solo se pide al llegar al paso 3 con una fecha válida. La verificación final
+  // en `guardarCita` hace su propia lectura fresca (sin caché) para exactitud.
+  const { data: horasOcupadas = [], isLoading: cargandoHoras } = useQuery({
+    queryKey: ["disponibilidad", fecha.trim()],
+    queryFn: () => obtenerIntervalos(fecha.trim()),
+    enabled: paso === 3 && fechaValida,
+    staleTime: 30 * 1000,
+  });
 
   // Bloques de inicio libres: caben en la jornada y queda al menos un
   // trabajador capaz de cubrir el turno (según su horario y sin otro turno
@@ -517,30 +543,10 @@ const CotizadorWizard = () => {
     setGuardando(true);
     try {
       // Verifica que el bloque siga con cupo (otro pudo reservarlo), usando la
-      // misma lógica de capacidad que mostró las horas disponibles.
-      const q = query(
-        collection(db, "turnos"),
-        where("fecha", "==", fecha.trim()),
-      );
-      const snap = await getDocs(q);
+      // misma lógica de capacidad que mostró las horas disponibles. La ocupación
+      // la entrega la CF (sin leer la PII de los turnos ajenos).
       const inicioSel = horaANumero(hora);
-      const ocupadas = snap.docs
-        .map((d) => d.data())
-        .filter(
-          (t) =>
-            !ESTADOS_INACTIVOS.includes(String(t.estado || "").toLowerCase()),
-        )
-        .map((t) => {
-          const ini = horaANumero(t.hora);
-          if (ini == null) return null;
-          const servicios = t.cotizacion?.servicios ?? [];
-          const dur = servicios.reduce(
-            (max, s) => Math.max(max, duracionDeTipo(s.tipoLimpieza)),
-            duracionDeTipo("Normal"),
-          );
-          return { inicio: ini, fin: ini + dur, asignadoA: t.asignadoA ?? null };
-        })
-        .filter(Boolean);
+      const ocupadas = await obtenerIntervalos(fecha.trim());
       const [yy, mm, dd] = fecha.trim().split("-").map(Number);
       const diaKey = DIAS_SEMANA[new Date(yy, mm - 1, dd).getDay()];
       const ocupado = !bloqueTieneCupo({
@@ -566,6 +572,7 @@ const CotizadorWizard = () => {
         apellido: perfil?.apellido || "",
         celular: perfil?.celular || "",
         correo: perfil?.correo || user.email || "",
+        duracionEstimada: duracionActual,
         cotizacion: {
           id: `${Date.now()}`,
           servicios: [
@@ -602,14 +609,28 @@ const CotizadorWizard = () => {
         },
         deviceId: getDeviceId(),
         estado: "Recibido",
-        creadoEn: new Date(),
+        creadoEn: serverTimestamp(),
       });
+
+      // Registrar que este usuario ya usó el código (uso único por usuario).
+      // Best-effort: un fallo aquí no debe afectar la reserva ya creada.
+      if (codigoAplicado?.docId && user?.uid) {
+        try {
+          await updateDoc(doc(db, "codigos", codigoAplicado.docId), {
+            usos: arrayUnion(user.uid),
+          });
+        } catch (e) {
+          console.warn("No se pudo registrar el uso del código:", e);
+        }
+      }
 
       setModal({
         tipo: "exito",
-        texto: `¡Reserva confirmada${
+        texto: `¡Reserva Recibida${
           perfil?.nombre ? ", " + perfil.nombre : ""
-        }! Nos vemos el ${fecha} a las ${hora}.`,
+        }! para ${fecha} a las ${hora}.
+        realiza el pago para confirmar tu turno.
+        `,
       });
     } catch (e) {
       console.error(e);
@@ -686,7 +707,9 @@ const CotizadorWizard = () => {
               {paso === 0 && (
                 <>
                   <h3 className="wiz-seccion">¿Qué deseas limpiar?</h3>
-                  <p className="wiz-ayuda">Elige el servicio que deseas agendar.</p>
+                  <p className="wiz-ayuda">
+                    Elige el servicio que deseas agendar.
+                  </p>
                   <div className="wiz-servicios">
                     {services.map((service) => {
                       const activo = selectedService?.id === service.id;
@@ -701,9 +724,7 @@ const CotizadorWizard = () => {
                             <span className="wiz-servicio-title">
                               {service.title}
                             </span>
-                            <span
-                              className={`wiz-check${activo ? " on" : ""}`}
-                            >
+                            <span className={`wiz-check${activo ? " on" : ""}`}>
                               {activo ? <IoCheckmark /> : <IoAdd />}
                             </span>
                           </div>
@@ -740,7 +761,9 @@ const CotizadorWizard = () => {
                           onClick={() => elegirTamano(p.size)}
                         >
                           {p.size}
-                          {precioMostrado != null ? ` · $${precioMostrado}` : ""}
+                          {precioMostrado != null
+                            ? ` · $${precioMostrado}`
+                            : ""}
                         </button>
                       );
                     })}
@@ -832,7 +855,9 @@ const CotizadorWizard = () => {
                     <span className="wiz-vacio-icono">
                       <IoSparklesOutline />
                     </span>
-                    <p>No hay servicios adicionales para tu selección. ¡Continúa!</p>
+                    <p>
+                      No hay servicios adicionales para tu selección. ¡Continúa!
+                    </p>
                   </div>
                 ))}
 
@@ -840,7 +865,9 @@ const CotizadorWizard = () => {
               {paso === 3 && (
                 <>
                   <h3 className="wiz-seccion">¿Cuándo te visitamos?</h3>
-                  <p className="wiz-ayuda">Elige el día y la hora que prefieras.</p>
+                  <p className="wiz-ayuda">
+                    Elige el día y la hora que prefieras.
+                  </p>
 
                   <label className="wiz-label">Fecha</label>
                   <CalendarioMes value={fecha} onChange={setFecha} />
@@ -886,27 +913,67 @@ const CotizadorWizard = () => {
                   </p>
 
                   <div className="wiz-buscador">
-                    <input
-                      type="text"
-                      className="wiz-input"
-                      placeholder={`Buscar una calle en ${ciudadUsuario}`}
-                      value={busqueda}
-                      onChange={(e) => onBuscar(e.target.value)}
-                      autoComplete="off"
-                    />
+                    <div className="wiz-buscador-campo">
+                      <IoSearchOutline className="wiz-buscador-icono" />
+                      <input
+                        type="text"
+                        className="wiz-input wiz-buscador-input"
+                        placeholder={`Buscar una calle en ${ciudadUsuario}`}
+                        value={busqueda}
+                        onChange={(e) => onBuscar(e.target.value)}
+                        onKeyDown={onBusquedaKeyDown}
+                        autoComplete="off"
+                      />
+                      {busqueda && (
+                        <button
+                          type="button"
+                          className="wiz-buscador-limpiar"
+                          onClick={limpiarBusqueda}
+                          aria-label="Limpiar búsqueda"
+                        >
+                          <IoCloseOutline />
+                        </button>
+                      )}
+                    </div>
                     {sugerencias.length > 0 && (
                       <ul className="wiz-sugerencias">
-                        {sugerencias.map((s, i) => (
-                          <li
-                            key={`${s.lat}-${s.lng}-${i}`}
-                            className="wiz-sugerencia"
-                            onClick={() => elegirSugerencia(s)}
-                          >
-                            {s.display_name}
-                          </li>
-                        ))}
+                        {sugerencias.map((s, i) => {
+                          const [principal, ...resto] =
+                            s.display_name.split(", ");
+                          return (
+                            <li
+                              key={`${s.lat}-${s.lng}-${i}`}
+                              className="wiz-sugerencia"
+                              onClick={() => elegirSugerencia(s)}
+                            >
+                              <IoLocationOutline className="wiz-sugerencia-icono" />
+                              <span className="wiz-sugerencia-texto">
+                                <span className="wiz-sugerencia-principal">
+                                  {principal}
+                                </span>
+                                {resto.length > 0 && (
+                                  <span className="wiz-sugerencia-secundaria">
+                                    {resto.join(", ")}
+                                  </span>
+                                )}
+                              </span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
+                    {buscandoDir && sugerencias.length === 0 && (
+                      <div className="wiz-sugerencias">
+                        <div className="wiz-buscando">Buscando…</div>
+                      </div>
+                    )}
+                    {!buscandoDir &&
+                      sugerencias.length === 0 &&
+                      busqueda.trim().length >= 3 && (
+                        <div className="wiz-sugerencias">
+                          <div className="wiz-buscando">Sin resultados</div>
+                        </div>
+                      )}
                   </div>
 
                   <div className="wiz-mapa">
@@ -916,8 +983,10 @@ const CotizadorWizard = () => {
                       style={{ height: "100%", width: "100%" }}
                     >
                       <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        attribution="&copy; OpenStreetMap &copy; CARTO"
+                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
+                        subdomains="abcd"
+                        maxZoom={20}
                       />
                       <RecenterMapa posicion={posicionMapa} />
                       <SelectorMapa
@@ -925,29 +994,31 @@ const CotizadorWizard = () => {
                         onSeleccion={actualizarPosicion}
                       />
                     </MapContainer>
+                    <span className="wiz-mapa-hint">
+                      Toca el mapa o arrastra el pin para ajustar
+                    </span>
+                    <button
+                      type="button"
+                      className="wiz-mapa-fab"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        usarMiUbicacion();
+                      }}
+                      disabled={obteniendoUbic}
+                    >
+                      <IoLocateOutline />{" "}
+                      {obteniendoUbic ? "Localizando…" : "Mi ubicación"}
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    className="wiz-ubic-btn"
-                    onClick={usarMiUbicacion}
-                    disabled={obteniendoUbic}
-                  >
-                    {obteniendoUbic ? (
-                      "Localizando…"
-                    ) : (
-                      <>
-                        <IoLocateOutline /> Usar mi ubicación actual
-                      </>
-                    )}
-                  </button>
 
                   {direccionTexto && (
                     <div className="wiz-direccion">
                       <span className="wiz-direccion-label">
-                        Ubicación seleccionada
+                        <IoLocationOutline /> Ubicación seleccionada
                       </span>
-                      <span className="wiz-direccion-text">{direccionTexto}</span>
+                      <span className="wiz-direccion-text">
+                        {direccionTexto}
+                      </span>
                     </div>
                   )}
 
@@ -968,6 +1039,11 @@ const CotizadorWizard = () => {
                   <h3 className="wiz-seccion">Resumen de tu servicio</h3>
 
                   <div className="wiz-resumen-card">
+                    {fecha && hora && (
+                      <p>
+                        <strong>Fecha y hora:</strong> {fecha} · {hora}
+                      </p>
+                    )}
                     <p>
                       <strong>Servicio:</strong> {selectedService?.title}
                     </p>
@@ -996,11 +1072,6 @@ const CotizadorWizard = () => {
                       <p>
                         <strong>Adicionales:</strong>{" "}
                         {selectedAdicionales.map((a) => a.name).join(", ")}
-                      </p>
-                    )}
-                    {fecha && hora && (
-                      <p>
-                        <strong>Fecha y hora:</strong> {fecha} · {hora}
                       </p>
                     )}
                   </div>

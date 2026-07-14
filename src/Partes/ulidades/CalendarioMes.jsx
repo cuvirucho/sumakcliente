@@ -26,9 +26,14 @@ const aISO = (d) =>
     d.getDate(),
   ).padStart(2, "0")}`;
 
-const CalendarioMes = ({ value, onChange }) => {
+const CalendarioMes = ({ value, onChange, minDate }) => {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
+  // Día mínimo seleccionable. Por defecto = hoy (para reservar). El filtro de
+  // citas pasa una fecha antigua (minDate) para poder elegir fechas pasadas.
+  const limite = minDate
+    ? new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate())
+    : hoy;
 
   // Mes mostrado: el de la fecha elegida, o el actual.
   const inicial = value ? new Date(`${value}T00:00:00`) : hoy;
@@ -50,8 +55,10 @@ const CalendarioMes = ({ value, onChange }) => {
 
   const irMes = (delta) => setCursor(new Date(anio, mes + delta, 1));
 
-  const mesActual =
-    anio === hoy.getFullYear() && mes === hoy.getMonth();
+  // No permitir navegar antes del mes del límite inferior.
+  const enLimiteInferior =
+    anio < limite.getFullYear() ||
+    (anio === limite.getFullYear() && mes <= limite.getMonth());
 
   return (
     <div className="cal-mes">
@@ -60,7 +67,7 @@ const CalendarioMes = ({ value, onChange }) => {
           type="button"
           className="cal-mes-nav"
           onClick={() => irMes(-1)}
-          disabled={mesActual}
+          disabled={enLimiteInferior}
           aria-label="Mes anterior"
         >
           <IoChevronBack />
@@ -91,7 +98,7 @@ const CalendarioMes = ({ value, onChange }) => {
           if (d === null) return <span key={`e-${i}`} className="cal-mes-dia vacio" />;
           const fecha = new Date(anio, mes, d);
           const iso = aISO(fecha);
-          const pasado = fecha < hoy;
+          const pasado = fecha < limite;
           const sel = value === iso;
           return (
             <button

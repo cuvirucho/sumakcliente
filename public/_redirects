@@ -1,0 +1,3 @@
+# SPA fallback: todas las rutas del cliente (React Router) sirven index.html.
+# Necesario para que URLs como /politica-privacidad carguen en acceso directo.
+/*    /index.html   200

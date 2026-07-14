@@ -2,6 +2,17 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../ulidades/AuthContext";
 
+// Correo con formato básico válido.
+const esCorreoValido = (correo) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
+
+// Normaliza el celular quitando espacios, guiones y paréntesis.
+const normalizarCelular = (v) => v.replace(/[\s\-().]/g, "");
+
+// Celular móvil de Ecuador: 09XXXXXXXX (local) o +5939XXXXXXXX / 5939XXXXXXXX.
+const esCelularEcuador = (v) =>
+  /^(?:\+?593|0)9\d{8}$/.test(normalizarCelular(v));
+
 const traducirError = (code) => {
   switch (code) {
     case "auth/invalid-credential":
@@ -36,6 +47,7 @@ const AuthGate = () => {
   });
   const [regError, setRegError] = useState("");
   const [regLoading, setRegLoading] = useState(false);
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -62,9 +74,31 @@ const AuthGate = () => {
       setRegError("Completa todos los campos.");
       return;
     }
+    if (!esCorreoValido(correo)) {
+      setRegError(
+        "Ingresa un correo electrónico válido (ej. nombre@correo.com).",
+      );
+      return;
+    }
+    if (!esCelularEcuador(celular)) {
+      setRegError("Ingresa un celular válido de Ecuador.");
+      return;
+    }
+    if (!aceptaTerminos) {
+      setRegError(
+        "Debes aceptar los Términos y Condiciones y la Política de Privacidad para crear tu cuenta.",
+      );
+      return;
+    }
     setRegLoading(true);
     try {
-      await registrar({ nombre, apellido, correo, celular, password });
+      await registrar({
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        correo: correo.trim().toLowerCase(),
+        celular: normalizarCelular(celular),
+        password,
+      });
       setModalAbierto(false);
     } catch (error) {
       setRegError(traducirError(error.code));
@@ -90,9 +124,7 @@ const AuthGate = () => {
                 className="auth-input"
                 placeholder="tucorreo@ejemplo.com"
                 value={login.correo}
-                onChange={(e) =>
-                  setLogin({ ...login, correo: e.target.value })
-                }
+                onChange={(e) => setLogin({ ...login, correo: e.target.value })}
               />
             </div>
             <div className="auth-field">
@@ -110,11 +142,7 @@ const AuthGate = () => {
 
             {loginError && <p className="auth-error">{loginError}</p>}
 
-            <button
-              type="submit"
-              className="auth-btn"
-              disabled={loginLoading}
-            >
+            <button type="submit" className="auth-btn" disabled={loginLoading}>
               {loginLoading ? "Ingresando..." : "Iniciar sesión"}
             </button>
           </form>
@@ -127,6 +155,7 @@ const AuthGate = () => {
             className="auth-btn auth-btn--secondary"
             onClick={() => {
               setRegError("");
+              setAceptaTerminos(false);
               setModalAbierto(true);
             }}
           >
@@ -159,7 +188,13 @@ const AuthGate = () => {
                   { name: "nombre", label: "Nombre", type: "text" },
                   { name: "apellido", label: "Apellido", type: "text" },
                   { name: "correo", label: "Correo", type: "email" },
-                  { name: "celular", label: "Celular", type: "tel" },
+                  {
+                    name: "celular",
+                    label: "Celular",
+                    type: "tel",
+                    inputMode: "numeric",
+                    placeholder: "0991234567",
+                  },
                   { name: "password", label: "Contraseña", type: "password" },
                 ].map((f) => (
                   <div className="auth-field" key={f.name}>
@@ -167,7 +202,10 @@ const AuthGate = () => {
                     <input
                       type={f.type}
                       className="auth-input"
-                      placeholder={`Ingrese su ${f.label.toLowerCase()}`}
+                      inputMode={f.inputMode}
+                      placeholder={
+                        f.placeholder || `Ingrese su ${f.label.toLowerCase()}`
+                      }
                       value={reg[f.name]}
                       onChange={(e) =>
                         setReg({ ...reg, [f.name]: e.target.value })
@@ -175,6 +213,20 @@ const AuthGate = () => {
                     />
                   </div>
                 ))}
+
+                <label className="auth-terms">
+                  <input
+                    type="checkbox"
+                    checked={aceptaTerminos}
+                    onChange={(e) => setAceptaTerminos(e.target.checked)}
+                  />
+                  <span>
+                    Acepto los{" "}
+                    <a href="/terminos" target="_blank" rel="noreferrer">
+                      Términos y Condiciones y la Política de Privacidad
+                    </a>
+                  </span>
+                </label>
 
                 {regError && <p className="auth-error">{regError}</p>}
 

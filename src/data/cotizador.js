@@ -260,6 +260,82 @@ export const tiposLimpieza = [
   },
 ];
 
+// ── Planes mensuales ──────────────────────────────────────────────
+// Mismo catálogo que la app móvil (SumakApp/src/data/cotizador.js) y que el
+// catálogo servidor (functions/src/tarifas.js). Los `id`, `precio`,
+// `serviciosTotales` y `tipoServicios` deben coincidir exactamente con
+// tarifas.js, o la Cloud Function `onPlanCreado` marcará el plan como
+// `requiereRevision`.
+export const planesMensuales = [
+  {
+    id: "ahorro",
+    nombre: "Plan Ahorro",
+    precio: 95,
+    descripcion: "Ideal para mantener tu espacio limpio durante todo el mes.",
+    incluye: [
+      "3 limpiezas normales",
+      "Personal verificado",
+      "Atención prioritaria",
+    ],
+    serviciosTotales: 3,
+    tipoServicios: {
+      normal: 3,
+      premium: 0,
+      master: 0,
+    },
+  },
+
+  {
+    id: "medio",
+    nombre: "Plan Esencial",
+    precio: 150,
+    descripcion:
+      "Perfecto para lugares que requieren una limpieza más profunda.",
+    incluye: [
+      "3 limpiezas normales",
+      "1 limpieza Master",
+      "Atención prioritaria",
+      "Programación flexible",
+    ],
+    serviciosTotales: 4,
+    tipoServicios: {
+      normal: 3,
+      premium: 0,
+      master: 1,
+    },
+  },
+
+  {
+    id: "maximo",
+    nombre: "Plan premium",
+    precio: 200,
+    descripcion: "La solución completa para mantener tu espacio impecable.",
+    incluye: [
+      "4 limpiezas Premium",
+      "Atención VIP",
+      "Prioridad máxima en agenda",
+    ],
+    serviciosTotales: 4,
+    tipoServicios: {
+      normal: 0,
+      premium: 4,
+      master: 0,
+    },
+  },
+];
+
+// El plan destacado (badge "RECOMENDADO"), igual que en la app.
+export const PLAN_DESTACADO = "maximo";
+
+// Elige el plan activo del usuario: prioriza aprobado > recibido, ignora
+// negado. Los estados de plan van en minúscula (como la app y la Cloud
+// Function), a diferencia de los estados de turno ("Recibido").
+export function elegirPlanActivo(planes) {
+  const activo = (est) =>
+    planes.find((p) => String(p.estado || "").toLowerCase() === est);
+  return activo("aprobado") || activo("recibido") || null;
+}
+
 // Estados de turnos que NO ocupan agenda (ya no cuentan para solapamientos).
 export const ESTADOS_INACTIVOS = [
   "cancelada",

@@ -1,0 +1,11 @@
+# Configuración de despliegue en Netlify para la app Vite (SPA).
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# El SPA fallback vive en public/_redirects (se copia a dist/_redirects).
+# Se deja aquí también como respaldo por si _redirects no estuviera presente.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

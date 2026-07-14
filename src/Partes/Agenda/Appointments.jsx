@@ -10,6 +10,7 @@ import {
 import { db } from "../../Firebase/Firebase";
 import { getDeviceId } from "../ulidades/deviceId";
 import { useAuth } from "../ulidades/AuthContext";
+import CalendarioMes from "../ulidades/CalendarioMes";
 import AuthGate from "./AuthGate";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeCanvas } from "qrcode.react";
@@ -28,6 +29,136 @@ const FILTROS = [
   { key: "cancelado", label: "Cancelado", match: "cancel" },
 ];
 
+// Modos del filtro por fecha. "recientes" (por defecto) = últimos 7 días + futuro.
+const FECHA_MODOS = [
+  { key: "recientes", label: "Recientes" },
+  { key: "dia", label: "Día" },
+  { key: "semana", label: "Semana" },
+  { key: "mes", label: "Mes" },
+  { key: "rango", label: "Rango" },
+];
+
+const MS_DIA = 24 * 60 * 60 * 1000;
+
+// Fecha de hoy como 'AAAA-MM-DD'.
+function hoyCadena() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+}
+
+// Parsea 'AAAA-MM-DD' a Date local (inicio del día) o null.
+function aFecha(str) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(str || ""));
+  if (!m) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3]);
+}
+
+function inicioDiaMs(str) {
+  const d = aFecha(str);
+  return d ? d.getTime() : -Infinity;
+}
+function finDiaMs(str) {
+  const d = aFecha(str);
+  return d ? d.getTime() + MS_DIA - 1 : Infinity;
+}
+
+// Ventana { desdeMs, hastaMs } para el filtro del lado del cliente (defensivo).
+function rangoDeModo(modo, ancla, desde, hasta) {
+  if (modo === "dia") {
+    return { desdeMs: inicioDiaMs(ancla), hastaMs: finDiaMs(ancla) };
+  }
+  if (modo === "semana") {
+    const base = aFecha(ancla) || new Date();
+    const offset = (base.getDay() + 6) % 7; // 0 = lunes
+    const lunes = new Date(
+      base.getFullYear(),
+      base.getMonth(),
+      base.getDate() - offset,
+    );
+    return { desdeMs: lunes.getTime(), hastaMs: lunes.getTime() + 7 * MS_DIA - 1 };
+  }
+  if (modo === "mes") {
+    const base = aFecha(ancla) || new Date();
+    const ini = new Date(base.getFullYear(), base.getMonth(), 1);
+    const fin = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+    return { desdeMs: ini.getTime(), hastaMs: fin.getTime() + MS_DIA - 1 };
+  }
+  if (modo === "rango") {
+    return {
+      desdeMs: desde ? inicioDiaMs(desde) : -Infinity,
+      hastaMs: hasta ? finDiaMs(hasta) : Infinity,
+    };
+  }
+  // "recientes": últimos 7 días + todo el futuro.
+  const hoy = new Date();
+  const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  return { desdeMs: inicioHoy.getTime() - 7 * MS_DIA, hastaMs: Infinity };
+}
+
+// Límites 'AAAA-MM-DD' para la CONSULTA a Firestore. hastaStr=null => sin tope.
+function limitesConsulta(modo, ancla, desde, hasta) {
+  const iso = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate(),
+    ).padStart(2, "0")}`;
+  if (modo === "dia") return { desdeStr: ancla, hastaStr: ancla };
+  if (modo === "semana") {
+    const base = aFecha(ancla) || new Date();
+    const offset = (base.getDay() + 6) % 7;
+    const lunes = new Date(
+      base.getFullYear(),
+      base.getMonth(),
+      base.getDate() - offset,
+    );
+    const dom = new Date(
+      lunes.getFullYear(),
+      lunes.getMonth(),
+      lunes.getDate() + 6,
+    );
+    return { desdeStr: iso(lunes), hastaStr: iso(dom) };
+  }
+  if (modo === "mes") {
+    const base = aFecha(ancla) || new Date();
+    const ini = new Date(base.getFullYear(), base.getMonth(), 1);
+    const fin = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+    return { desdeStr: iso(ini), hastaStr: iso(fin) };
+  }
+  if (modo === "rango") return { desdeStr: desde || null, hastaStr: hasta || null };
+  const hoy = new Date();
+  const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 7);
+  return { desdeStr: iso(inicio), hastaStr: null };
+}
+
+// Texto corto que resume el filtro de fecha activo.
+function resumenFiltroFecha(modo, ancla, desde, hasta) {
+  const corto = (str) => {
+    const d = aFecha(str);
+    if (!d) return "—";
+    return d.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  };
+  if (modo === "dia") return `Día ${corto(ancla)}`;
+  if (modo === "semana") {
+    const { desdeMs, hastaMs } = rangoDeModo("semana", ancla);
+    const d1 = new Date(desdeMs);
+    const d2 = new Date(hastaMs);
+    return `Semana ${d1.toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "short",
+    })}–${d2.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}`;
+  }
+  if (modo === "mes") {
+    const base = aFecha(ancla) || new Date();
+    return base.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  }
+  if (modo === "rango") return `${corto(desde)} – ${corto(hasta)}`;
+  return "Recientes";
+}
+
+// Día mínimo seleccionable en el calendario del filtro (permite fechas pasadas).
+const MIN_FECHA_FILTRO = new Date(2000, 0, 1);
+
 const Appointments = () => {
   const [citas, setCitas] = useState([]);
   const [selectedCita, setSelectedCita] = useState(null);
@@ -39,6 +170,13 @@ const Appointments = () => {
   const [comentario, setComentario] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [filtro, setFiltro] = useState("todos");
+  // Filtro por fecha. Por defecto "recientes" = últimos 7 días + futuros.
+  const [fechaModo, setFechaModo] = useState("recientes");
+  const [fechaAncla, setFechaAncla] = useState(() => hoyCadena());
+  const [rangoDesde, setRangoDesde] = useState("");
+  const [rangoHasta, setRangoHasta] = useState("");
+  const [rangoEditando, setRangoEditando] = useState("desde");
+  const [cargandoCitas, setCargandoCitas] = useState(true);
   const streamUnsubsRef = useRef({});
   const nudgedRef = useRef(
     new Set(
@@ -55,31 +193,64 @@ const Appointments = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
+  // Ventana de consulta (strings 'AAAA-MM-DD'); cambia solo cuando cambia el
+  // periodo, no al elegir distintos días dentro del mismo mes/semana.
+  const { desdeStr, hastaStr } = user
+    ? limitesConsulta(fechaModo, fechaAncla, rangoDesde, rangoHasta)
+    : { desdeStr: null, hastaStr: null };
+
+  // Turnos en tiempo real, acotados a la ventana de fecha del filtro. Por
+  // defecto trae últimos 7 días + futuros; al cambiar el periodo se re-suscribe.
+  // Requiere índice compuesto en Firestore: turnos (uid ASC, fecha ASC).
   useEffect(() => {
-    const q = user
-      ? query(collection(db, "turnos"), where("uid", "==", user.uid))
-      : query(collection(db, "turnos"), where("deviceId", "==", deviceId));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const citasData = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
-      setCitas(citasData);
-    });
+    let q;
+    if (user) {
+      const restricciones = [where("uid", "==", user.uid)];
+      if (desdeStr) restricciones.push(where("fecha", ">=", desdeStr));
+      if (hastaStr) restricciones.push(where("fecha", "<=", hastaStr));
+      q = query(collection(db, "turnos"), ...restricciones);
+    } else {
+      // Sin sesión (queda tras AuthGate, no se renderiza): sin cambios.
+      q = query(collection(db, "turnos"), where("deviceId", "==", deviceId));
+    }
+    setCargandoCitas(true);
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const citasData = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setCitas(citasData);
+        setCargandoCitas(false);
+      },
+      (e) => {
+        console.warn("Error escuchando turnos:", e);
+        setCargandoCitas(false);
+      },
+    );
     return () => unsubscribe();
-  }, [deviceId, user]);
+  }, [deviceId, user, desdeStr, hastaStr]);
 
   useEffect(() => {
-    const currentIds = new Set(citas.map((c) => c.id));
-    // Limpiar suscripciones de turnos que ya no existen
+    // Un stream en vivo solo existe mientras el servicio está activo. Nos
+    // suscribimos solo a citas NO terminales (ni completadas ni canceladas),
+    // evitando abrir listeners de Firestore sobre todo el historial. Esto
+    // recorta drásticamente las conexiones y lecturas a escala.
+    const esTerminal = (c) => {
+      const e = (c.estado || "Aprobado").toLowerCase();
+      if (e.includes("complet")) return true;
+      if (e.includes("cancel") && !e.includes("proceso")) return true;
+      return false;
+    };
+    const conStream = citas.filter((c) => !esTerminal(c));
+    const currentIds = new Set(conStream.map((c) => c.id));
+    // Limpiar suscripciones de turnos que ya no aplican (removidos o terminales)
     Object.keys(streamUnsubsRef.current).forEach((id) => {
       if (!currentIds.has(id)) {
         streamUnsubsRef.current[id]();
         delete streamUnsubsRef.current[id];
       }
     });
-    // Suscribir a streams de nuevos turnos
-    citas.forEach((cita) => {
+    // Suscribir a streams de los turnos activos nuevos
+    conStream.forEach((cita) => {
       if (!streamUnsubsRef.current[cita.id]) {
         streamUnsubsRef.current[cita.id] = onSnapshot(
           doc(db, "streams", cita.id),
@@ -107,6 +278,19 @@ const Appointments = () => {
   const esCompletada = (c) => estadoEfectivo(c).includes("complet");
   const enProceso = (c) => estadoEfectivo(c).includes("proceso");
   const yaCalificada = (c) => c.calificacion != null;
+  const esRecibido = (c) => estadoEfectivo(c).includes("recib");
+  const esCancelado = (c) => {
+    const e = estadoEfectivo(c);
+    return e.includes("cancel") && !e.includes("proceso");
+  };
+  const esEnCancelacion = (c) => {
+    const e = estadoEfectivo(c);
+    return e.includes("cancel") && e.includes("proceso");
+  };
+  const precioTurno = (c) => {
+    const v = c?.cotizacion?.total ?? c?.total ?? c?.precio;
+    return typeof v === "number" ? v : Number(v);
+  };
 
   // Detectar cuando una cita pasa a "Completado" (lo actualiza otra app) y
   // avisar una sola vez para que califique.
@@ -128,6 +312,34 @@ const Appointments = () => {
       setNudgeCita(pendiente);
     }
   }, [citas]);
+
+  // Una fecha elegida en el calendario del filtro: para "rango" alterna entre
+  // desde/hasta; para los demás modos es el ancla del periodo.
+  const manejarFechaElegida = (str) => {
+    if (fechaModo === "rango") {
+      if (rangoEditando === "desde") {
+        setRangoDesde(str);
+        if (rangoHasta && str > rangoHasta) setRangoHasta("");
+        setRangoEditando("hasta");
+      } else if (rangoDesde && str < rangoDesde) {
+        setRangoDesde(str);
+        setRangoHasta("");
+        setRangoEditando("hasta");
+      } else {
+        setRangoHasta(str);
+      }
+      return;
+    }
+    setFechaAncla(str);
+  };
+
+  const restablecerFiltroFecha = () => {
+    setFechaModo("recientes");
+    setFechaAncla(hoyCadena());
+    setRangoDesde("");
+    setRangoHasta("");
+    setRangoEditando("desde");
+  };
 
   const abrirCalificacion = (cita) => {
     setNudgeCita(null);
@@ -184,6 +396,14 @@ const Appointments = () => {
   }
 
   const matchActivo = FILTROS.find((f) => f.key === filtro)?.match ?? null;
+  const filtroFechaActivo = fechaModo !== "recientes";
+  const hayFiltroActivo = filtroFechaActivo || filtro !== "todos";
+  const { desdeMs: ventanaDesde, hastaMs: ventanaHasta } = rangoDeModo(
+    fechaModo,
+    fechaAncla,
+    rangoDesde,
+    rangoHasta,
+  );
 
   const tiempoCita = (c) => {
     const t = new Date(`${c.fecha}T${c.hora}`).getTime();
@@ -191,7 +411,11 @@ const Appointments = () => {
   };
 
   const citasOrdenadas = citas
-    .filter((c) => !matchActivo || estadoEfectivo(c).includes(matchActivo))
+    .filter((c) => {
+      const t = tiempoCita(c);
+      if (t < ventanaDesde || t > ventanaHasta) return false; // ventana de fecha
+      return !matchActivo || estadoEfectivo(c).includes(matchActivo);
+    })
     .sort((a, b) => {
       const ca = esCompletada(a);
       const cb = esCompletada(b);
@@ -201,6 +425,88 @@ const Appointments = () => {
 
   return (
     <section className="appointments-container">
+      {/* Filtro por fecha (siempre visible: permite consultar periodos pasados
+          aunque la ventana actual esté vacía) */}
+      <div className="filtros-fecha">
+        <div className="filtros-estado filtros-fecha-modos">
+          {FECHA_MODOS.map((m) => (
+            <button
+              key={m.key}
+              className={`filtro-chip${fechaModo === m.key ? " activo" : ""}`}
+              onClick={() => setFechaModo(m.key)}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {filtroFechaActivo && (
+          <div className="filtro-fecha-panel">
+            {(fechaModo === "semana" || fechaModo === "mes") && (
+              <p className="filtro-fecha-ayuda">
+                Elige cualquier día: se mostrará{" "}
+                {fechaModo === "semana" ? "la semana" : "el mes"} de esa fecha.
+              </p>
+            )}
+
+            {fechaModo === "rango" && (
+              <div className="filtro-fecha-rango">
+                <button
+                  type="button"
+                  className={`filtro-rango-campo${
+                    rangoEditando === "desde" ? " activo" : ""
+                  }`}
+                  onClick={() => setRangoEditando("desde")}
+                >
+                  <span>Desde</span>
+                  <strong>{rangoDesde || "—"}</strong>
+                </button>
+                <button
+                  type="button"
+                  className={`filtro-rango-campo${
+                    rangoEditando === "hasta" ? " activo" : ""
+                  }`}
+                  onClick={() => setRangoEditando("hasta")}
+                >
+                  <span>Hasta</span>
+                  <strong>{rangoHasta || "—"}</strong>
+                </button>
+              </div>
+            )}
+
+            <CalendarioMes
+              value={
+                fechaModo === "rango"
+                  ? rangoEditando === "desde"
+                    ? rangoDesde
+                    : rangoHasta
+                  : fechaAncla
+              }
+              onChange={manejarFechaElegida}
+              minDate={MIN_FECHA_FILTRO}
+            />
+
+            <div className="filtro-fecha-acciones">
+              <span className="filtro-fecha-resumen">
+                {resumenFiltroFecha(
+                  fechaModo,
+                  fechaAncla,
+                  rangoDesde,
+                  rangoHasta,
+                )}
+              </span>
+              <button
+                type="button"
+                className="filtro-fecha-reset"
+                onClick={restablecerFiltroFecha}
+              >
+                Restablecer
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {citas.length > 0 && (
         <div className="filtros-estado">
           {FILTROS.map((f) => (
@@ -216,13 +522,13 @@ const Appointments = () => {
       )}
 
       <AnimatePresence>
-        {citas.length === 0 ? (
+        {cargandoCitas ? (
           <motion.p
             className="empty"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            No hay citas registradas
+            Cargando...
           </motion.p>
         ) : citasOrdenadas.length === 0 ? (
           <motion.p
@@ -230,7 +536,9 @@ const Appointments = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            No hay citas en este estado
+            {hayFiltroActivo
+              ? "No hay citas en este periodo o estado"
+              : "No hay citas registradas"}
           </motion.p>
         ) : (
           <div className="cards-grid">
@@ -303,7 +611,7 @@ const Appointments = () => {
                 <Confetti
                   className="modal-conti"
                   recycle={false}
-                  numberOfPieces={8000}
+                  numberOfPieces={400}
                 />
               )}
               <motion.div
@@ -358,17 +666,49 @@ const Appointments = () => {
                   );
                 })()}
 
-                <div className="qr-section">
-                  <h4>Código QR del pedido</h4>
-                  <QRCodeCanvas
-                    value={selectedCita.id}
-                    size={180}
-                    bgColor="#fff"
-                    fgColor="#2D6A62"
-                    includeMargin={true}
-                  />
-                  <p className="qr-id">ID: {selectedCita.id}</p>
-                </div>
+                {esRecibido(selectedCita) ? (
+                  <div className="deposito-aviso">
+                    <h4>Para aprobar tu turno realiza la transferencia</h4>
+                    {Number.isFinite(precioTurno(selectedCita)) && (
+                      <p className="deposito-monto">
+                        Monto a transferir: ${precioTurno(selectedCita).toFixed(2)}
+                      </p>
+                    )}
+                    <p className="deposito-nota">
+                      Envía tu comprobante para agilizar la aprobación.
+                    </p>
+                  </div>
+                ) : esCompletada(selectedCita) ? (
+                  <div className="completado-aviso">
+                    <h4>
+                      Servicio completado <IoSparkles />
+                    </h4>
+                    <p>¡Gracias por confiar en SUMAK!</p>
+                  </div>
+                ) : esCancelado(selectedCita) || esEnCancelacion(selectedCita) ? (
+                  <div className="cancelado-aviso">
+                    <h4>
+                      {esEnCancelacion(selectedCita)
+                        ? "Cancelación en proceso"
+                        : "Este pedido fue cancelado"}
+                    </h4>
+                    {esEnCancelacion(selectedCita) && (
+                      <p>Tu reembolso se procesará en un máximo de 48 horas.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="qr-section">
+                    <h4>Código QR del pedido</h4>
+                    <QRCodeCanvas
+                      value={selectedCita.id}
+                      size={180}
+                      bgColor="#fff"
+                      fgColor="#2D6A62"
+                      includeMargin={true}
+                    />
+                    <p className="qr-id">ID: {selectedCita.id}</p>
+                  </div>
+                )}
 
                 {activeStreams.has(selectedCita.id) && (
                   <button
