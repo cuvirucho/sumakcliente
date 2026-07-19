@@ -175,7 +175,9 @@ const Home = () => {
 
       {/* Tipos de limpieza — carrusel coverflow */}
       <div className="tipos-section fade-in">
-        <h2 className="sumak-section-title">Conoce nuestros tipos de limpieza</h2>
+        <h2 className="sumak-section-title">
+          Conoce nuestros tipos de limpieza
+        </h2>
         <p className="tipos-subtitle">
           Elige el nivel de detalle perfecto para tu espacio.
         </p>
@@ -216,7 +218,9 @@ const Home = () => {
                   }}
                   transition={{ type: "spring", stiffness: 280, damping: 30 }}
                   onClick={() => (activa ? setTipoModal(tipo) : irA(index))}
-                  style={{ pointerEvents: Math.abs(offset) > 1 ? "none" : "auto" }}
+                  style={{
+                    pointerEvents: Math.abs(offset) > 1 ? "none" : "auto",
+                  }}
                 >
                   <div className="tipo-card__img-wrap">
                     <img
@@ -399,6 +403,7 @@ const Home = () => {
           </p>
 
           <div className="sumak-cta-buttons">
+            {/*
             <a
               href="https://play.google.com/store/apps/details?id=TU_APP"
               target="_blank"
@@ -407,6 +412,8 @@ const Home = () => {
             >
               Descargar la App
             </a>
+            */}
+            <p className="sumak-button-secondary">Próximamente</p>
           </div>
         </div>
       </motion.section>
