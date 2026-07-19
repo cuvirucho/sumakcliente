@@ -4,6 +4,7 @@ import Home from './Partes/Pantalpirciapl/Home';
 import Navbar from './Partes/ulidades/Navbar';
 import Footer from './Partes/ulidades/Footer';
 import MaintenancePanel from './Partes/ulidades/MaintenancePanel';
+import CoberturaGate from './Partes/ulidades/CoberturaGate';
 
 // Rutas cargadas bajo demanda (code-splitting): sacan del bundle inicial las
 // dependencias pesadas que solo usa cada pantalla — Leaflet (CotizadorWizard),
@@ -39,6 +40,10 @@ function App() {
       {/* Panel de mantenimiento (protección de costos): se superpone a toda la
           app cuando el sistema está en mantenimiento. El staff no es bloqueado. */}
       <MaintenancePanel />
+
+      {/* Candado de cobertura: se superpone a toda la app cuando se confirma que
+          el usuario está fuera de Cuenca. Fail-open; el staff no es bloqueado. */}
+      <CoberturaGate />
 
       {/* Navbar siempre visible */}
       <Navbar />
