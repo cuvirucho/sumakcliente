@@ -9,6 +9,7 @@ import {
   collection,
 } from "firebase/firestore";
 import { db } from "../Firebase/Firebase";
+import { useSystemConfig } from "../Partes/ulidades/SystemConfigContext";
 import {
   IoCheckmark,
   IoClose,
@@ -95,6 +96,12 @@ const STATUS = {
     subtitle: "Revisa tu conexión e intenta nuevamente más tarde.",
     spinner: false,
   },
+  maintenance: {
+    title: "Transmisión en pausa",
+    subtitle:
+      "El video en vivo está temporalmente deshabilitado por mantenimiento. Vuelve a intentarlo más tarde.",
+    spinner: false,
+  },
 };
 
 // Reintentos acotados con backoff cuando la conexión falla y no se recupera.
@@ -144,6 +151,9 @@ async function logStreamDiagnostics(pc, label) {
 
 export default function ViewStream() {
   const { turnoId } = useParams();
+  const { flags } = useSystemConfig();
+  // Protección de costos: el streaming (relay TURN) se apaga en mantenimiento (≥90).
+  const streamingEnabled = flags.streamingEnabled !== false;
   const [status, setStatus] = useState("waiting");
   const [videoReady, setVideoReady] = useState(false);
   // Resolución real del video recibido (para diagnosticar en el celular sin
@@ -170,6 +180,12 @@ export default function ViewStream() {
 
   // --- WebRTC ---
   useEffect(() => {
+    // Protección de costos: no establecer la conexión WebRTC si el streaming
+    // está deshabilitado. Se reevalúa si el flag cambia (está en las deps).
+    if (!streamingEnabled) {
+      setStatus("maintenance");
+      return undefined;
+    }
     let cancelled = false;
     const streamDocRef = doc(db, "streams", turnoId);
 
@@ -397,7 +413,7 @@ export default function ViewStream() {
         pcRef.current = null;
       }
     };
-  }, [turnoId]);
+  }, [turnoId, streamingEnabled]);
 
   // --- Fullscreen tracking ---
   useEffect(() => {

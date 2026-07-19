@@ -25,6 +25,8 @@ const traducirError = (code) => {
       return "El correo no es válido.";
     case "auth/weak-password":
       return "La contraseña debe tener al menos 6 caracteres.";
+    case "app/maintenance":
+      return "Estamos en mantenimiento temporal y el registro está pausado. Vuelve a intentarlo en unos minutos.";
     default:
       return "Ocurrió un error. Inténtalo de nuevo.";
   }

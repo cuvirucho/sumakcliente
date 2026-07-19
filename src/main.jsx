@@ -8,6 +8,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import App from './App.jsx';
 import { AuthProvider } from './Partes/ulidades/AuthContext.jsx';
+import { SystemConfigProvider } from './Partes/ulidades/SystemConfigContext.jsx';
 import {
   crearQueryClient,
   CLAVES_PERSISTIDAS,
@@ -42,7 +43,9 @@ root.render(
   >
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <SystemConfigProvider>
+          <App />
+        </SystemConfigProvider>
       </AuthProvider>
     </BrowserRouter>
   </PersistQueryClientProvider>

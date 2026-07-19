@@ -45,6 +45,7 @@ import { MdCleaningServices } from "react-icons/md";
 import { db, functions } from "../../Firebase/Firebase";
 import { getDeviceId } from "../ulidades/deviceId";
 import { useAuth } from "../ulidades/AuthContext";
+import { useSystemConfig } from "../ulidades/SystemConfigContext";
 import { reverseGeocode, buscarDirecciones } from "../ulidades/geocoding";
 import CalendarioMes from "../ulidades/CalendarioMes";
 import AuthGate from "./AuthGate";
@@ -136,6 +137,9 @@ const RecenterMapa = ({ posicion }) => {
 
 const CotizadorWizard = () => {
   const { user, perfil } = useAuth();
+  const { flags } = useSystemConfig();
+  // Protección de costos: las reservas se pausan en mantenimiento (nivel ≥90).
+  const reservasHabilitadas = flags.reservationsEnabled !== false;
   const navigate = useNavigate();
 
   // ── Estado del cotizador (selección única de servicio) ──────────
@@ -461,7 +465,8 @@ const CotizadorWizard = () => {
   const { data: horasOcupadas = [], isLoading: cargandoHoras } = useQuery({
     queryKey: ["disponibilidad", fecha.trim()],
     queryFn: () => obtenerIntervalos(fecha.trim()),
-    enabled: paso === 3 && fechaValida,
+    // No consultar la CF si las reservas están deshabilitadas (respondería 503).
+    enabled: paso === 3 && fechaValida && reservasHabilitadas,
     staleTime: 30 * 1000,
   });
 
@@ -469,7 +474,9 @@ const CotizadorWizard = () => {
   // trabajador capaz de cubrir el turno (según su horario y sin otro turno
   // asignado). Sin datos de trabajadores, cualquier turno solapado ocupa.
   const horasDisponibles = [];
-  if (fechaValida) {
+  // Con reservas deshabilitadas no se ofrecen horarios (la ocupación vacía haría
+  // aparecer TODOS los bloques como libres — justo lo que hay que evitar).
+  if (fechaValida && reservasHabilitadas) {
     const ahora = new Date();
     const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(
       2,
@@ -529,6 +536,16 @@ const CotizadorWizard = () => {
 
   // ── Guardar turno ───────────────────────────────────────────────
   const guardarCita = async () => {
+    // Protección de costos: durante el mantenimiento (nivel ≥90) no se aceptan
+    // reservas nuevas. Cortamos antes de leer la CF o escribir en Firestore.
+    if (!reservasHabilitadas) {
+      setModal({
+        tipo: "mantenimiento",
+        texto:
+          "Estamos realizando un mantenimiento temporal y las reservas están pausadas. Vuelve a intentarlo en unos minutos.",
+      });
+      return;
+    }
     if (!selectedService || !sizeValido || error) {
       setModal({
         tipo: "error",
@@ -1198,6 +1215,7 @@ const CotizadorWizard = () => {
                 {modal.tipo === "exito" && "¡Reserva exitosa!"}
                 {modal.tipo === "error" && "Algo salió mal"}
                 {modal.tipo === "turno" && "Horario no disponible"}
+                {modal.tipo === "mantenimiento" && "Servicio en mantenimiento"}
               </h3>
               <p className="tm-modal__text">{modal.texto}</p>
               <button className="tm-modal__btn" onClick={cerrarModal}>

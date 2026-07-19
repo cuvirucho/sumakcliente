@@ -77,7 +77,10 @@ function rangoDeModo(modo, ancla, desde, hasta) {
       base.getMonth(),
       base.getDate() - offset,
     );
-    return { desdeMs: lunes.getTime(), hastaMs: lunes.getTime() + 7 * MS_DIA - 1 };
+    return {
+      desdeMs: lunes.getTime(),
+      hastaMs: lunes.getTime() + 7 * MS_DIA - 1,
+    };
   }
   if (modo === "mes") {
     const base = aFecha(ancla) || new Date();
@@ -125,7 +128,8 @@ function limitesConsulta(modo, ancla, desde, hasta) {
     const fin = new Date(base.getFullYear(), base.getMonth() + 1, 0);
     return { desdeStr: iso(ini), hastaStr: iso(fin) };
   }
-  if (modo === "rango") return { desdeStr: desde || null, hastaStr: hasta || null };
+  if (modo === "rango")
+    return { desdeStr: desde || null, hastaStr: hasta || null };
   const hoy = new Date();
   const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 7);
   return { desdeStr: iso(inicio), hastaStr: null };
@@ -632,6 +636,7 @@ const Appointments = () => {
                 </h2>
 
                 <div className="modal-info">
+                  <p>ID: {selectedCita.cotizacion.id}</p>
                   <p>
                     <strong>Cliente:</strong> {selectedCita.nombre}{" "}
                     {selectedCita.apellido}
@@ -671,7 +676,8 @@ const Appointments = () => {
                     <h4>Para aprobar tu turno realiza la transferencia</h4>
                     {Number.isFinite(precioTurno(selectedCita)) && (
                       <p className="deposito-monto">
-                        Monto a transferir: ${precioTurno(selectedCita).toFixed(2)}
+                        Monto a transferir: $
+                        {precioTurno(selectedCita).toFixed(2)}
                       </p>
                     )}
                     <p className="deposito-nota">
@@ -685,7 +691,8 @@ const Appointments = () => {
                     </h4>
                     <p>¡Gracias por confiar en SUMAK!</p>
                   </div>
-                ) : esCancelado(selectedCita) || esEnCancelacion(selectedCita) ? (
+                ) : esCancelado(selectedCita) ||
+                  esEnCancelacion(selectedCita) ? (
                   <div className="cancelado-aviso">
                     <h4>
                       {esEnCancelacion(selectedCita)
@@ -706,7 +713,7 @@ const Appointments = () => {
                       fgColor="#2D6A62"
                       includeMargin={true}
                     />
-                    <p className="qr-id">ID: {selectedCita.id}</p>
+                    <p className="qr-id">ID: {selectedCita.cotizacion.id}</p>
                   </div>
                 )}
 

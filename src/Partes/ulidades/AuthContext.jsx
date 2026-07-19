@@ -9,6 +9,7 @@ import {
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../Firebase/Firebase";
 import { LEGAL_UPDATED } from "../../data/legalContent";
+import { puedeOperar } from "./systemConfig";
 
 const AuthContext = createContext(null);
 
@@ -39,6 +40,13 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const registrar = async ({ nombre, apellido, correo, celular, password }) => {
+    // Protección de costos: en emergencia/crítico (≥95%) se pausa el alta de
+    // nuevas cuentas. Se corta antes de crear el usuario en Auth.
+    if (!puedeOperar("allowNewUsers")) {
+      const err = new Error("Registro pausado por mantenimiento.");
+      err.code = "app/maintenance";
+      throw err;
+    }
     const cred = await createUserWithEmailAndPassword(auth, correo, password);
     await updateProfile(cred.user, {
       displayName: `${nombre} ${apellido}`.trim(),

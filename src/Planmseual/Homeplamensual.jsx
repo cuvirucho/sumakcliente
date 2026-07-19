@@ -12,6 +12,7 @@ import {
 import { IoCheckmarkCircle, IoStar, IoSparklesOutline } from "react-icons/io5";
 import { db } from "../Firebase/Firebase";
 import { useAuth } from "../Partes/ulidades/AuthContext";
+import { useSystemConfig } from "../Partes/ulidades/SystemConfigContext";
 import AuthGate from "../Partes/Agenda/AuthGate";
 import {
   planesMensuales,
@@ -50,6 +51,9 @@ const testimonios = [
 
 const Homeplamensual = () => {
   const { user, perfil } = useAuth();
+  const { flags } = useSystemConfig();
+  // Protección de costos: contratar un plan se pausa en mantenimiento (≥90).
+  const reservasHabilitadas = flags.reservationsEnabled !== false;
 
   const [confirmPlan, setConfirmPlan] = useState(null); // plan pendiente de confirmar
   const [guardando, setGuardando] = useState(false);
@@ -97,6 +101,15 @@ const Homeplamensual = () => {
   // "Adquirir Plan": sin sesión abre el gate; con sesión abre la confirmación.
   const adquirir = (plan) => {
     if (bloqueado) return;
+    // Protección de costos: contratación pausada durante el mantenimiento.
+    if (!reservasHabilitadas) {
+      setModal({
+        tipo: "mantenimiento",
+        texto:
+          "Estamos realizando un mantenimiento temporal y la contratación de planes está pausada. Vuelve a intentarlo en unos minutos.",
+      });
+      return;
+    }
     if (!user) {
       setAuthAbierto(true);
       return;
@@ -109,6 +122,17 @@ const Homeplamensual = () => {
   // `onPlanCreado` verifica precio/servicios contra el catálogo servidor.
   const confirmarCompra = async () => {
     if (!confirmPlan || !user) return;
+    // Protección de costos: doble comprobación por si el nivel cambió mientras
+    // el modal de confirmación estaba abierto.
+    if (!reservasHabilitadas) {
+      setConfirmPlan(null);
+      setModal({
+        tipo: "mantenimiento",
+        texto:
+          "Estamos realizando un mantenimiento temporal y la contratación de planes está pausada. Vuelve a intentarlo en unos minutos.",
+      });
+      return;
+    }
     setGuardando(true);
     try {
       await addDoc(collection(db, "planesMensuales"), {
@@ -353,7 +377,11 @@ const Homeplamensual = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="tm-modal__title">
-                {modal.tipo === "exito" ? "¡Solicitud enviada!" : "Algo salió mal"}
+                {modal.tipo === "exito"
+                  ? "¡Solicitud enviada!"
+                  : modal.tipo === "mantenimiento"
+                    ? "Servicio en mantenimiento"
+                    : "Algo salió mal"}
               </h3>
               <p className="tm-modal__text">{modal.texto}</p>
               <button className="tm-modal__btn" onClick={() => setModal(null)}>
