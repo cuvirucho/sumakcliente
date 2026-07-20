@@ -330,10 +330,11 @@ export const PLAN_DESTACADO = "maximo";
 // Elige el plan activo del usuario: prioriza aprobado > recibido, ignora
 // negado. Los estados de plan van en minúscula (como la app y la Cloud
 // Function), a diferencia de los estados de turno ("Recibido").
+// "aprobando" es el sinónimo de aprobado que escribe el dashboard al cobrar.
 export function elegirPlanActivo(planes) {
   const activo = (est) =>
     planes.find((p) => String(p.estado || "").toLowerCase() === est);
-  return activo("aprobado") || activo("recibido") || null;
+  return activo("aprobado") || activo("aprobando") || activo("recibido") || null;
 }
 
 // Estados de turnos que NO ocupan agenda (ya no cuentan para solapamientos).

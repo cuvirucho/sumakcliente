@@ -20,10 +20,11 @@ import {
   elegirPlanActivo,
 } from "../data/cotizador";
 
-// Texto humano para el estado de un plan ya solicitado.
+// Texto humano para el estado de un plan ya solicitado. "aprobando" es el
+// sinónimo de aprobado que escribe el dashboard al cobrar.
 const textoEstado = (estado) => {
   const e = String(estado || "").toLowerCase();
-  if (e === "aprobado") return "Ya tienes un plan activo.";
+  if (e === "aprobado" || e === "aprobando") return "Ya tienes un plan activo.";
   if (e === "recibido") return "Tienes un plan en revisión.";
   return "";
 };

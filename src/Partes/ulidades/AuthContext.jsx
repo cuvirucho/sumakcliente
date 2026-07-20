@@ -11,6 +11,11 @@ import { auth, db } from "../../Firebase/Firebase";
 import { LEGAL_UPDATED } from "../../data/legalContent";
 import { puedeOperar } from "./systemConfig";
 
+// Freno de costos: solo re-escribir `ultimoAcceso` si el último acceso registrado
+// tiene más de 12 h. Mantiene las métricas de "usuario activo" del panel al día
+// con ~1 escritura por usuario al día (reutiliza el doc ya leído, sin lecturas extra).
+const DOCE_HORAS = 12 * 60 * 60 * 1000;
+
 const AuthContext = createContext(null);
 
 export const useAuth = () => useContext(AuthContext);
@@ -26,7 +31,20 @@ export const AuthProvider = ({ children }) => {
       if (u) {
         try {
           const snap = await getDoc(doc(db, "usuarios", u.uid));
-          setPerfil(snap.exists() ? snap.data() : null);
+          if (snap.exists()) {
+            const data = snap.data();
+            setPerfil(data);
+            // Marca de actividad para las métricas del panel (best-effort).
+            // Freno de costos: solo re-escribe si el último acceso tiene más de 12 h.
+            const ult = data.ultimoAcceso?.toDate?.() ?? null;
+            if (!ult || Date.now() - ult.getTime() >= DOCE_HORAS) {
+              updateDoc(doc(db, "usuarios", u.uid), {
+                ultimoAcceso: serverTimestamp(),
+              }).catch(() => {});
+            }
+          } else {
+            setPerfil(null);
+          }
         } catch (error) {
           console.error("Error al cargar perfil:", error);
           setPerfil(null);
