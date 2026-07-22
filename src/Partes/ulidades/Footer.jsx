@@ -7,8 +7,11 @@ import {
   IoLocationOutline,
 } from "react-icons/io5";
 import { cloudinaryOptimized } from "./cloudinary";
+import { useAuth } from "./AuthContext";
 
 const Footer = () => {
+  const { user } = useAuth();
+
   return (
     <footer className="footer">
       <div className="footer__inner">
@@ -110,6 +113,11 @@ const Footer = () => {
         <Link to="/politica-privacidad" className="footer__legal-link">
           Política de Privacidad
         </Link>
+        {user && (
+          <Link to="/eliminar-cuenta" className="footer__legal-link">
+            Eliminar mi cuenta
+          </Link>
+        )}
       </div>
     </footer>
   );

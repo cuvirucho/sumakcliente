@@ -18,6 +18,7 @@ const ViewStream = lazy(() => import('./pages/ViewStream'));
 const Perfil = lazy(() => import('./Partes/Perfil/Perfil'));
 const PoliticaPrivacidad = lazy(() => import('./Partes/Legal/PoliticaPrivacidad'));
 const Terminos = lazy(() => import('./Partes/Legal/Terminos'));
+const EliminarCuenta = lazy(() => import('./Partes/Legal/EliminarCuenta'));
 
 // Fallback ligero mientras carga el chunk de la ruta. Ocupa el alto de la
 // ventana para evitar saltos de layout (CLS) y no dejar la pantalla en blanco.
@@ -60,6 +61,7 @@ function App() {
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/politica-privacidad" element={<PoliticaPrivacidad />} />
           <Route path="/terminos" element={<Terminos />} />
+          <Route path="/eliminar-cuenta" element={<EliminarCuenta />} />
           <Route path="/view/:turnoId" element={<ViewStream />} />
         </Routes>
       </Suspense>
