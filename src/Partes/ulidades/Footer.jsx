@@ -30,13 +30,25 @@ const Footer = () => {
             Limpieza profesional para tu espacio.
           </p>
           <div className="footer__social">
-            <a href="#" className="footer__social-link" aria-label="Instagram">
+            <a
+              href="https://www.instagram.com/sumakclean?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
+              className="footer__social-link"
+              aria-label="Instagram"
+            >
               <FaInstagram />
             </a>
-            <a href="#" className="footer__social-link" aria-label="WhatsApp">
+            <a
+              href="https://wa.me/593963200325"
+              className="footer__social-link"
+              aria-label="WhatsApp"
+            >
               <FaWhatsapp />
             </a>
-            <a href="#" className="footer__social-link" aria-label="Facebook">
+            <a
+              href="https://www.facebook.com/profile.php?id=61592090888016"
+              className="footer__social-link"
+              aria-label="Facebook"
+            >
               <FaFacebookF />
             </a>
           </div>
